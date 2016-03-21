@@ -13,13 +13,13 @@ func main() {
 
 	rand.Seed(time.Now().UnixNano())
 	startMapServer()
-	timer := time.NewTimer(time.Minute * 10)
-	<-timer.C
+	startHTTPServer()
 }
 
 func startHTTPServer() {
 	router := httprouter.New()
 	router.GET("/", HomeHandler)
+	router.GET("/getMap", getMap)
 	router.ServeFiles("/src/*filepath", http.Dir("./public"))
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

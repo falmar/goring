@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -11,12 +12,14 @@ type Monster struct {
 	name       string
 	hp         int64
 	level      int64
-	sightRange int64
-	walkRange  int64
+	basemap    *Map
 	positionX  int64
 	positionY  int64
-	basemap    *Map
+	sightRange int64
+	walkRange  int64
 	walkSpeed  float64
+	walkRoute  [][]int64
+	idleRange  []int64
 }
 
 var retry int
@@ -28,23 +31,25 @@ func NewMonster(id int64, basemap *Map) *Monster {
 		name:       "Poring",
 		hp:         50,
 		level:      1,
-		sightRange: 12,
-		walkRange:  6,
 		basemap:    basemap,
-		positionX:  basemap.size / 2,
-		positionY:  basemap.size / 2,
-		walkSpeed:  0.7,
+		positionX:  random(1, basemap.size),
+		positionY:  random(1, basemap.size),
+		walkRange:  6,
+		walkSpeed:  1.2,
+		idleRange:  []int64{1, 4},
+		sightRange: 12,
 	}
 }
 
 // Run start monster functions
 func (m *Monster) Run() {
 	go m.Move()
+	//go m.getStatus()
 }
 
 // Move the monster around the map
 func (m *Monster) Move() {
-	timer := time.NewTimer(time.Second * time.Duration(random(1, 5)))
+	timer := time.NewTimer(time.Second * time.Duration(random(m.idleRange[0], m.idleRange[1])))
 	<-timer.C
 	oX := m.positionX
 	oY := m.positionY
@@ -66,26 +71,28 @@ func (m *Monster) Move() {
 			}
 		}
 
-		m.positionX = nX
-		m.positionY = nY
-
-		if m.routeWalk(oX, oY, nX, nY) {
+		if route, ok := m.routeWalk(oX, oY, nX, nY); ok {
+			m.walkRoute = route
+			for i := 0; i < len(route); i++ {
+				walkTimer := time.NewTimer(time.Duration(m.walkSpeed*1000) * time.Millisecond)
+				<-walkTimer.C
+				m.positionX = nX
+				m.positionY = nY
+			}
 			break
 		}
 	}
 
-	fmt.Println(fmt.Sprintf("%s-%d moving to X:%d Y:%d", m.name, m.id, nX, nY))
-
+	//fmt.Println(fmt.Sprintf("%s moving to X:%d Y:%d", m.name, nX, nY))
 	m.Move()
 }
 
-func (m *Monster) routeWalk(oX, oY, nX, nY int64) bool {
+func (m *Monster) routeWalk(oX, oY, nX, nY int64) ([][]int64, bool) {
 	var X, Y int64 = oX, oY
 	var route [][]int64
 	var movements int64
 
 	for {
-
 		X, Y = m.routeXY(X, nX, Y, nY)
 
 		movements++
@@ -103,13 +110,13 @@ func (m *Monster) routeWalk(oX, oY, nX, nY int64) bool {
 	if int64(len(route)) > m.walkRange {
 		retry++
 		if retry > 6 {
-			return false
+			return route, false
 		}
 		return m.routeWalk(oX, oY, nX, nY)
 	}
 
 	retry = 0
-	return true
+	return route, true
 }
 
 func (m *Monster) routeXY(X, nX, Y, nY int64) (int64, int64) {
@@ -147,4 +154,18 @@ func (m *Monster) routeY(Y, nY int64) int64 {
 		Y++
 	}
 	return Y
+}
+
+func (m *Monster) getStatus() {
+	mob := map[string]interface{}{
+		"hp":        m.hp,
+		"walkRoute": m.walkRoute,
+	}
+	b, _ := json.Marshal(mob)
+	fmt.Println(fmt.Sprintf("Mob Info (%d)", m.id), " ", string(b))
+
+	timer := time.NewTimer(500 * time.Millisecond)
+	<-timer.C
+
+	m.getStatus()
 }
