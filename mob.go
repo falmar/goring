@@ -86,20 +86,7 @@ func (m *Monster) routeWalk(oX, oY, nX, nY int64) bool {
 
 	for {
 
-		r := random(1, 2)
-		dr := random(1, 100)
-
-		if (r == 1 || Y == nY) && X != nX {
-			X = m.routeX(X, nX)
-			if dr > 65 && dr < 100 {
-				Y = m.routeX(Y, nY)
-			}
-		} else if (r == 2 || X == nX) && Y != nY {
-			Y = m.routeY(Y, nY)
-			if dr > 0 && dr < 45 {
-				X = m.routeX(X, nX)
-			}
-		}
+		X, Y = m.routeXY(X, nX, Y, nY)
 
 		movements++
 		if movements > m.walkRange {
@@ -123,6 +110,25 @@ func (m *Monster) routeWalk(oX, oY, nX, nY int64) bool {
 
 	retry = 0
 	return true
+}
+
+func (m *Monster) routeXY(X, nX, Y, nY int64) (int64, int64) {
+	r := random(1, 2)
+	dr := random(1, 100)
+
+	if (r == 1 || Y == nY) && X != nX {
+		X = m.routeX(X, nX)
+		if dr > 65 && dr < 100 {
+			Y = m.routeX(Y, nY)
+		}
+	} else if (r == 2 || X == nX) && Y != nY {
+		Y = m.routeY(Y, nY)
+		if dr > 0 && dr < 45 {
+			X = m.routeX(X, nX)
+		}
+	}
+
+	return X, Y
 }
 
 func (m *Monster) routeX(X, nX int64) int64 {
