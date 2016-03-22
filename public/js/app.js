@@ -1,17 +1,26 @@
 
 $(document).ready(function(){
 
-  $("#map_form").submit(function(e) {
-    e.preventDefault();
+  var sock = null;
+  var wsuri = "ws://127.0.0.1:9020/getMap";
 
-    $.ajax({
-      url: "/getMap",
-      dataType: 'json'
-      success: function(data) {
-        alert(data.id)
-      }
-    })
+  sock = new WebSocket(wsuri);
 
-  });
+  sock.onopen = function() {
+    console.log("connected to " + wsuri);
+    sock.send("map-id:prontera")
+  }
+
+  sock.onclose = function(e) {
+    console.log("connection closed (" + e.code + ")");
+  }
+
+  sock.onerror = function (error) {
+    console.log('Error Logged: ' + error); //log errors
+  };
+
+  sock.onmessage = function(e) {
+    console.log("message received: " + e.data);
+  }
 
 })
