@@ -32,8 +32,8 @@ function loadMap(mapID) {
 
       switch(cmd) {
         case "info":
-          $("#map-name").html(data.name)
-          buildMapGrid(data.size)
+          buildMapGrid(data.name,data.size)
+          loadMobs(data.mobs,data.id)
           break;
       }
 
@@ -43,6 +43,18 @@ function loadMap(mapID) {
   }
 }
 
-function buildMapGrid(size) {
-  
+function buildMapGrid(name,size) {
+  var table = $("<span><table class='text-center'><thead><tr><th class='text-center' colspan='"+size+"'>Map: "+name+"</th></tr></thead><tbody></tbody></table></span>");
+
+  for (f=0; f<size; f++) {
+    var tr = $("<tr></tr>");
+    for (z = 0; z<size; z++) {
+      var td = $("<td style='background-color: #FFF;'>&nbsp;</td>");
+      td.attr("id","cell-"+f+"-"+z);
+      tr.append(td);
+    }
+    table.find("tbody").append(tr);
+  }
+
+  $("#map-grid").html(table.html())
 }

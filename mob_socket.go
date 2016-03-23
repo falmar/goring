@@ -30,7 +30,8 @@ func getMob(ws *websocket.Conn) {
 
 				if mob, ok := m.getMob(mobID); ok {
 
-					ws.Write(mob.getBasicInfo())
+					ws.Write([]byte(fmt.Sprintf("info:%s\n", mob.getBasicInfo())))
+
 					addr := fmt.Sprintf("%p", ws)
 					mob.addSocket(addr, ws)
 					defer mob.delSocket(addr)
@@ -41,6 +42,7 @@ func getMob(ws *websocket.Conn) {
 						cmd := scanner.Text()
 						switch cmd {
 						case "cmd":
+
 						}
 					}
 				}

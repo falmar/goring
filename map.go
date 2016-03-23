@@ -12,7 +12,7 @@ type Map struct {
 	id      string
 	name    string
 	size    int64
-	mobs    []*Monster
+	mobs    map[string]*Monster
 	sockets map[string]*websocket.Conn
 	cmdChan chan string
 }
@@ -24,6 +24,7 @@ func NewMap(id, name string, size int64) *Map {
 		name:    name,
 		size:    size,
 		sockets: make(map[string]*websocket.Conn),
+		mobs:    make(map[string]*Monster),
 	}
 }
 
@@ -34,8 +35,17 @@ func (m *Map) Run() {
 }
 
 func (m *Map) loadMobs() {
-	m.mobs = []*Monster{
-		NewMonster(1002, m),
+
+	//TODO: Loop to load mobs from db or json file
+
+	for i := 0; i < 3; i++ {
+		mob := NewMonster(1002, m)
+		m.mobs[mob.memID] = mob
+	}
+
+	for i := 0; i < 2; i++ {
+		mob := NewMonster(1049, m)
+		m.mobs[mob.memID] = mob
 	}
 
 	for _, mb := range m.mobs {
@@ -44,9 +54,9 @@ func (m *Map) loadMobs() {
 }
 
 func (m *Map) getBasicInfo() []byte {
-	var mobs []int64
+	var mobs []string
 	for _, mb := range m.mobs {
-		mobs = append(mobs, mb.id)
+		mobs = append(mobs, mb.memID)
 	}
 
 	tmap := map[string]interface{}{
@@ -62,7 +72,8 @@ func (m *Map) getBasicInfo() []byte {
 }
 
 func (m *Map) getMob(mobID string) (*Monster, bool) {
-	return nil, false
+	mob, ok := m.mobs[mobID]
+	return mob, ok
 }
 
 //Socket for map output data about the map commands and changes

@@ -28,5 +28,6 @@ func startHTTPServer() {
 func startWebSocketServer() {
 	WSMux := http.NewServeMux()
 	WSMux.Handle("/getMap", websocket.Handler(getMap))
+	WSMux.Handle("/getMob", websocket.Handler(getMob))
 	log.Fatal(http.ListenAndServe(":9020", WSMux))
 }

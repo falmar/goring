@@ -16,6 +16,7 @@ const (
 
 // Monster basic interface
 type Monster struct {
+	memID      string
 	id         int64
 	name       string
 	hp         int64
@@ -39,7 +40,7 @@ var retry int
 
 // NewMonster instance for maps
 func NewMonster(id int64, baseMap *Map) *Monster {
-	return &Monster{
+	m := &Monster{
 		id:         id,
 		name:       "Poring",
 		hp:         50,
@@ -48,13 +49,17 @@ func NewMonster(id int64, baseMap *Map) *Monster {
 		positionX:  random(1, baseMap.size),
 		positionY:  random(1, baseMap.size),
 		walkRange:  6,
-		walkSpeed:  1.2,
-		idleRange:  []int64{1, 4},
+		walkSpeed:  1.60,
+		idleRange:  []int64{2, 5},
 		sightRange: 12,
 		sockets:    map[string]*websocket.Conn{},
 		statusChan: make(chan string),
 		cmdChan:    make(chan string),
 	}
+
+	m.memID = fmt.Sprintf("%p", m)
+
+	return m
 }
 
 // Run start monster functions
@@ -160,12 +165,12 @@ func (m *Monster) routeXY(X, nX, Y, nY int64) (int64, int64) {
 
 	if (r == 1 || Y == nY) && X != nX {
 		X = m.routeX(X, nX)
-		if dr > 65 && dr < 100 {
+		if dr > 50 && dr < 100 {
 			Y = m.routeX(Y, nY)
 		}
 	} else if (r == 2 || X == nX) && Y != nY {
 		Y = m.routeY(Y, nY)
-		if dr > 0 && dr < 45 {
+		if dr > 0 && dr < 50 {
 			X = m.routeX(X, nX)
 		}
 	}
@@ -193,9 +198,11 @@ func (m *Monster) routeY(Y, nY int64) int64 {
 
 func (m *Monster) getBasicInfo() []byte {
 	mob := map[string]interface{}{
+		"id":        m.id,
 		"hp":        m.hp,
 		"positionX": m.positionX,
 		"positionY": m.positionY,
+		"walkSpeed": m.walkSpeed,
 	}
 	b, _ := json.Marshal(mob)
 	return b
@@ -210,10 +217,7 @@ func (m *Monster) Socket() {
 			switch cmd {
 			case "move":
 				//fmt.Println(fmt.Sprintf("%s (%p) Moving to %d %d", m.name, m, m.positionX, m.positionY))
-				data := map[string]interface{}{
-					"route": m.walkRoute,
-				}
-				json, _ := json.Marshal(data)
+				json, _ := json.Marshal(m.walkRoute)
 				m.rangeSockets(cmd, string(json))
 			}
 		}
@@ -222,7 +226,7 @@ func (m *Monster) Socket() {
 
 func (m *Monster) rangeSockets(cmd, data string) {
 	for _, sock := range m.sockets {
-		sock.Write([]byte(fmt.Sprintln(cmd, ":", data)))
+		sock.Write([]byte(fmt.Sprintf("%s:%s\n", cmd, data)))
 	}
 }
 
