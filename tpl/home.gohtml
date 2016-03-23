@@ -12,17 +12,16 @@
 
         <br>
 
-        <form id="map_form" method="get" data-abide="ajax" novalidate>
-
+        <form id="map_form" method="get">
           <div class="row">
             <div class="large-4 column">
               <label for="">Map name:
-              <input type="text" name="map-id" value="">
+              <input type="text" id="map-id" name="map-id" value="">
             </label>
 
             </div>
             <div class=" column">
-              <button class="button" type="submit" name="submit">Teleport!</button>
+              <button class="button" type="submit">Teleport!</button>
             </div>
           </div>
 
@@ -30,11 +29,10 @@
       </div>
     </div>
 
-
-
     <br>
-    Map:
+    Map: <span id="map-name"></span>
     <br>
+
     <div class="map">
 
     </div>
@@ -43,5 +41,6 @@
     <script src="https://code.jquery.com/jquery-2.2.2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/foundation/6.2.0/foundation.min.js"></script>
     <script src="/src/js/app.js"></script>
+    <script src="/src/js/map.js"></script>
   </body>
 </html>

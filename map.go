@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"golang.org/x/net/websocket"
 )
@@ -15,6 +14,7 @@ type Map struct {
 	size    int64
 	mobs    []*Monster
 	sockets map[string]*websocket.Conn
+	cmdChan chan string
 }
 
 // NewMap instance for server
@@ -30,19 +30,7 @@ func NewMap(id, name string, size int64) *Map {
 // Run map functionability
 func (m *Map) Run() {
 	m.loadMobs()
-	go m.fakeCmd()
 	go m.Socket()
-	go m.checkSockets()
-}
-
-func (m *Map) checkSockets() {
-	ticker := time.NewTicker(time.Millisecond * 500)
-	go func() {
-		for {
-			<-ticker.C
-			fmt.Println(m.sockets)
-		}
-	}()
 }
 
 func (m *Map) loadMobs() {
@@ -70,14 +58,19 @@ func (m *Map) getBasicInfo() []byte {
 
 	b, _ := json.Marshal(tmap)
 
-	return []byte(fmt.Sprintln(b))
+	return []byte(fmt.Sprintf("info:%s\n", string(b)))
 }
 
-//Socket for map
+func (m *Map) getMob(mobID string) (*Monster, bool) {
+	return nil, false
+}
+
+//Socket for map output data about the map commands and changes
+// for JS browser to handle
 func (m *Map) Socket() {
 	for {
 		select {
-		case cmd := <-mapCmdChan[m.id]:
+		case cmd := <-m.cmdChan:
 			for _, sock := range m.sockets {
 				sock.Write([]byte(fmt.Sprintln(cmd)))
 			}
@@ -91,20 +84,4 @@ func (m *Map) addSocket(address string, ws *websocket.Conn) {
 
 func (m *Map) delSocket(address string) {
 	delete(m.sockets, address)
-}
-
-func (m *Map) fakeCmd() {
-
-	for {
-		timer := time.NewTimer(3 * time.Second)
-		<-timer.C
-
-		mapCmdChan[m.id] <- "Pix logged in"
-
-		timer = time.NewTimer(3 * time.Second)
-		<-timer.C
-
-		mapCmdChan[m.id] <- "Pix logged out"
-	}
-
 }
