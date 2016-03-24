@@ -44,11 +44,11 @@ function loadMap(mapID) {
 }
 
 function buildMapGrid(name,size) {
-  var table = $("<span><table class='text-center'><thead><tr><th class='text-center' colspan='"+size+"'>Map: "+name+"</th></tr></thead><tbody></tbody></table></span>");
+  var table = $("<span><table class='text-center'><thead><tr><th class='text-center' colspan='"+size[1]+"'>Map: "+name+"</th></tr></thead><tbody></tbody></table></span>");
 
-  for (f=0; f<size; f++) {
+  for (f=0; f<size[0]; f++) {
     var tr = $("<tr></tr>");
-    for (z = 0; z<size; z++) {
+    for (z = 0; z<size[1]; z++) {
       var td = $("<td style='background-color: #FFF;'>&nbsp;</td>");
       td.attr("id","cell-"+f+"-"+z);
       tr.append(td);

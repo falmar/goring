@@ -36,8 +36,6 @@ type Monster struct {
 	cmdChan    chan string
 }
 
-var retry int
-
 // NewMonster instance for maps
 func NewMonster(id int64, baseMap *Map) *Monster {
 	m := &Monster{
@@ -46,11 +44,11 @@ func NewMonster(id int64, baseMap *Map) *Monster {
 		hp:         50,
 		level:      1,
 		baseMap:    baseMap,
-		positionX:  random(1, baseMap.size),
-		positionY:  random(1, baseMap.size),
+		positionX:  random(1, baseMap.size[0]),
+		positionY:  random(1, baseMap.size[1]),
 		walkRange:  6,
-		walkSpeed:  1.60,
-		idleRange:  []int64{2, 5},
+		walkSpeed:  1.6,
+		idleRange:  []int64{2, 6},
 		sightRange: 12,
 		sockets:    map[string]*websocket.Conn{},
 		statusChan: make(chan string),
@@ -93,33 +91,36 @@ func (m *Monster) move() {
 
 	for {
 		nX = oX + random(m.walkRange*-1, m.walkRange)
-		if nX > 1 && nX < m.baseMap.size {
+		if nX > 1 && nX < m.baseMap.size[0] {
 			break
 		}
 	}
 
 	for {
 		nY = oY + random(m.walkRange*-1, m.walkRange)
-		if nY > 1 && nY < m.baseMap.size {
+		if nY > 1 && nY < m.baseMap.size[1] {
 			break
 		}
 	}
 
-	if route, ok := m.routeWalk(oX, oY, nX, nY); ok {
-		m.cmdChan <- "move"
-		m.walkRoute = route
-		walkTicker := time.NewTicker(time.Duration(m.walkSpeed*1000) * time.Millisecond)
-		m.status = mobStatusMoving
-		for i := 0; i < len(route); i++ {
-			if m.status != mobStatusMoving {
-				return
+	for {
+		if route, ok := m.routeWalk(oX, oY, nX, nY); ok {
+			m.cmdChan <- "move"
+			m.walkRoute = route
+			walkTicker := time.NewTicker(time.Duration(m.walkSpeed*1000) * time.Millisecond)
+			m.status = mobStatusMoving
+			for i := 0; i < len(route); i++ {
+				if m.status != mobStatusMoving {
+					return
+				}
+				<-walkTicker.C
+				m.positionX = route[i][0]
+				m.positionY = route[i][1]
 			}
-			<-walkTicker.C
-			m.positionX = route[i][0]
-			m.positionY = route[i][1]
+			m.status = mobStatusIdle
+			m.statusChan <- "idle"
+			break
 		}
-		m.status = mobStatusIdle
-		m.statusChan <- "idle"
 	}
 }
 
@@ -128,34 +129,43 @@ func (m *Monster) sight() {
 }
 
 func (m *Monster) routeWalk(oX, oY, nX, nY int64) ([][]int64, bool) {
-	var X, Y int64 = oX, oY
 	var route [][]int64
 	var movements int64
+	var retry int
 
 	for {
-		X, Y = m.routeXY(X, nX, Y, nY)
+		route = [][]int64{}
+		var X, Y int64 = oX, oY
+		movements = 0
 
-		movements++
+		for {
+			X, Y = m.routeXY(X, nX, Y, nY)
+
+			movements++
+			if movements > m.walkRange {
+				break
+			}
+
+			route = append(route, []int64{X, Y})
+
+			if X == nX && Y == nY {
+				break
+			}
+		}
+
+		//TODO: Fix route is never bigger than walkRange
+
 		if movements > m.walkRange {
-			break
+			retry++
+			if retry > 10 {
+				return route, false
+			}
+			continue
 		}
 
-		route = append(route, []int64{X, Y})
-
-		if X == nX && Y == nY {
-			break
-		}
+		break
 	}
 
-	if int64(len(route)) > m.walkRange {
-		retry++
-		if retry > 6 {
-			return route, false
-		}
-		return m.routeWalk(oX, oY, nX, nY)
-	}
-
-	retry = 0
 	return route, true
 }
 

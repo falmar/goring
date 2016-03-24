@@ -11,14 +11,14 @@ import (
 type Map struct {
 	id      string
 	name    string
-	size    int64
+	size    [2]int64
 	mobs    map[string]*Monster
 	sockets map[string]*websocket.Conn
 	cmdChan chan string
 }
 
 // NewMap instance for server
-func NewMap(id, name string, size int64) *Map {
+func NewMap(id, name string, size [2]int64) *Map {
 	return &Map{
 		id:      id,
 		name:    name,

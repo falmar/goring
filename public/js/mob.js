@@ -67,12 +67,16 @@ var Mob = function(id, data) {
   var mob = $("#mob-"+this.memID);
   mob.css("transition","top "+this.walkSpeed+"s, left "+this.walkSpeed+"s")
 
+  var cell = $("#map-grid").find("#cell-"+this.positionX+"-"+this.positionY+"");
+
+  mob.css("top", cell.offset().top+"px");
+  mob.css("left", cell.offset().left+"px");
+
   this.move = function(data) {
     var walkSpeed = this.walkSpeed;
 
     data.forEach(function(elem,i) {
       var cell = $("#map-grid").find("#cell-"+elem[0]+"-"+elem[1]+"");
-      cell.css("position","relative")
 
       mob.css("top", cell.offset().top+"px");
       mob.css("left", cell.offset().left+"px");
