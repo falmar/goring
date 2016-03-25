@@ -34,6 +34,8 @@ func (m *Map) Run() {
 	go m.Socket()
 }
 
+// ----------------- Monsters ------------------ //
+
 func (m *Map) loadMobs() {
 
 	//TODO: Loop to load mobs from db or json file
@@ -52,6 +54,8 @@ func (m *Map) loadMobs() {
 		go mb.Run()
 	}
 }
+
+// ----------------- Basic Info ------------------ //
 
 func (m *Map) getBasicInfo() []byte {
 	var mobs []string
@@ -76,16 +80,32 @@ func (m *Map) getMob(mobID string) (*Monster, bool) {
 	return mob, ok
 }
 
+// ----------------- Socket Functions ------------------ //
+
 //Socket for map output data about the map commands and changes
 // for JS browser to handle
 func (m *Map) Socket() {
 	for {
 		select {
 		case cmd := <-m.cmdChan:
-			for _, sock := range m.sockets {
-				sock.Write([]byte(fmt.Sprintln(cmd)))
+
+			jsonData := []byte{}
+
+			switch cmd {
+			case "something":
 			}
+
+			m.rangeSockets(cmd, string(jsonData))
 		}
+	}
+}
+
+func (m *Map) rangeSockets(cmd, data string) {
+	data = fmt.Sprintf("%s:%s\n", cmd, data)
+	for _, sock := range m.sockets {
+		go func(sock *websocket.Conn, data string) {
+			sock.Write([]byte(data))
+		}(sock, data)
 	}
 }
 

@@ -9,6 +9,10 @@ function loadMobs(mobs,mapID) {
     mobSockets.forEach(function(e,i){
       e.close()
     });
+
+    Mobs.forEach(function(e,i){
+      $("mob-".e.memID).remove()
+    });
   }
 
   var mobSockets = []
@@ -62,15 +66,15 @@ var Mob = function(id, data) {
   this.positionY = data.positionY
   this.walkSpeed = data.walkSpeed
 
-  $("body").append("<span><div class='mob-"+this.id+"' id='mob-"+this.memID+"'></div></span>")
+  $("body").append("<div class='mob-"+this.id+"' id='mob-"+this.memID+"'></div>");
 
-  var mob = $("#mob-"+this.memID);
-  mob.css("transition","top "+this.walkSpeed+"s, left "+this.walkSpeed+"s")
+  var mob = $("#mob-"+this.memID)
+  .css("transition","top "+this.walkSpeed+"s, left "+this.walkSpeed+"s")
 
   var cell = $("#map-grid").find("#cell-"+this.positionX+"-"+this.positionY+"");
 
-  mob.css("top", cell.offset().top+"px");
-  mob.css("left", cell.offset().left+"px");
+  mob.css("top", cell.offset().top+"px")
+  .css("left", cell.offset().left+"px");
 
   this.move = function(data) {
     var walkSpeed = this.walkSpeed;
@@ -78,13 +82,13 @@ var Mob = function(id, data) {
     data.forEach(function(elem,i) {
       var cell = $("#map-grid").find("#cell-"+elem[0]+"-"+elem[1]+"");
 
-      mob.css("top", cell.offset().top+"px");
-      mob.css("left", cell.offset().left+"px");
+      mob.css("top", cell.offset().top+"px")
+      .css("left", cell.offset().left+"px");
 
       setTimeout(function(){
         //console.log("Poring-"+id+" moving to x:"+elem[0]+" y:"+elem[1])
-        mob.css("top", cell.offset().top+"px");
-        mob.css("left", cell.offset().left+"px");
+        mob.css("top", cell.offset().top+"px")
+        .css("left", cell.offset().left+"px");
       },i*(walkSpeed*800))
     });
   }

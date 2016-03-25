@@ -82,6 +82,8 @@ func (m *Monster) Run() {
 	go m.Socket()
 }
 
+// ----------------- Random Movement ------------------ //
+
 // Move the monster around the map
 func (m *Monster) move() {
 	oX := m.positionX
@@ -122,10 +124,6 @@ func (m *Monster) move() {
 			break
 		}
 	}
-}
-
-func (m *Monster) sight() {
-
 }
 
 func (m *Monster) routeWalk(oX, oY, nX, nY int64) ([][]int64, bool) {
@@ -206,6 +204,14 @@ func (m *Monster) routeY(Y, nY int64) int64 {
 	return Y
 }
 
+// ----------------- sight ------------------ //
+
+func (m *Monster) sight() {
+
+}
+
+// ----------------- Basic Info ------------------ //
+
 func (m *Monster) getBasicInfo() []byte {
 	mob := map[string]interface{}{
 		"id":        m.id,
@@ -218,25 +224,33 @@ func (m *Monster) getBasicInfo() []byte {
 	return b
 }
 
+// ----------------- Socket ------------------ //
+
 //Socket for map output data about the map commands and changes
 // for JS browser to handle
 func (m *Monster) Socket() {
 	for {
 		select {
 		case cmd := <-m.cmdChan:
+
+			jsonData := []byte{}
+
 			switch cmd {
 			case "move":
-				//fmt.Println(fmt.Sprintf("%s (%p) Moving to %d %d", m.name, m, m.positionX, m.positionY))
-				json, _ := json.Marshal(m.walkRoute)
-				m.rangeSockets(cmd, string(json))
+				jsonData, _ = json.Marshal(m.walkRoute)
 			}
+
+			m.rangeSockets(cmd, string(jsonData))
 		}
 	}
 }
 
 func (m *Monster) rangeSockets(cmd, data string) {
+	data = fmt.Sprintf("%s:%s\n", cmd, data)
 	for _, sock := range m.sockets {
-		sock.Write([]byte(fmt.Sprintf("%s:%s\n", cmd, data)))
+		go func(sock *websocket.Conn, data string) {
+			sock.Write([]byte(data))
+		}(sock, data)
 	}
 }
 
