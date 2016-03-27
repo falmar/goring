@@ -32,7 +32,7 @@ type Monster struct {
 	sightRange int64
 	walkRange  int64
 	walkSpeed  float64
-	walkRoute  [][]int64
+	walkRoute  []int64
 	idleRange  []int64
 	status     int64
 	sockets    map[string]*websocket.Conn
@@ -53,7 +53,7 @@ func NewMonster(id int64, baseMap *Map) *Monster {
 		positionY:  random(1, baseMap.size[1]),
 		walkRange:  6,
 		walkSpeed:  1.6,
-		idleRange:  []int64{2, 6},
+		idleRange:  []int64{2, 4},
 		sightRange: 12,
 		sockets:    map[string]*websocket.Conn{},
 	}
@@ -90,6 +90,8 @@ func (m *Monster) Run(loadedMob chan<- bool) {
 
 // Move the monster around the map
 func (m *Monster) move() {
+	idle := time.NewTimer(time.Duration(random(m.idleRange[0], m.idleRange[1])) * time.Second)
+	<-idle.C
 	oX := m.positionX
 	oY := m.positionY
 	var nX int64
@@ -110,21 +112,21 @@ func (m *Monster) move() {
 	}
 
 	for {
-		if route, ok := m.routeWalk(oX, oY, nX, nY); ok {
-			m.mu.Lock()
-			m.walkRoute = route
-			m.mu.Unlock()
-			m.cmdChan <- "move"
+		if route, ok := m.routeMove(oX, oY, nX, nY); ok {
 			walkTicker := time.NewTicker(time.Duration(m.walkSpeed*1000) * time.Millisecond)
 			m.status = mobStatusMoving
 			for i := 0; i < len(route); i++ {
 				if m.status != mobStatusMoving {
 					return
 				}
-				<-walkTicker.C
+				if i > 0 {
+					<-walkTicker.C
+				}
 				m.mu.Lock()
+				m.walkRoute = []int64{route[i][0], route[i][1]}
 				m.positionX = route[i][0]
 				m.positionY = route[i][1]
+				m.cmdChan <- "move"
 				m.mu.Unlock()
 			}
 			m.status = mobStatusIdle
@@ -134,7 +136,7 @@ func (m *Monster) move() {
 	}
 }
 
-func (m *Monster) routeWalk(oX, oY, nX, nY int64) ([][]int64, bool) {
+func (m *Monster) routeMove(oX, oY, nX, nY int64) ([][]int64, bool) {
 	var route [][]int64
 	var movements int64
 	var retry int
@@ -158,8 +160,6 @@ func (m *Monster) routeWalk(oX, oY, nX, nY int64) ([][]int64, bool) {
 				break
 			}
 		}
-
-		//TODO: Fix route is never bigger than walkRange
 
 		if movements > m.walkRange {
 			retry++

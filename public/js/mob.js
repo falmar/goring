@@ -77,19 +77,8 @@ var Mob = function(id, data) {
   .css("left", cell.offset().left+"px");
 
   this.move = function(data) {
-    var walkSpeed = this.walkSpeed;
-
-    data.forEach(function(elem,i) {
-      var cell = $("#map-grid").find("#cell-"+elem[0]+"-"+elem[1]+"");
-
-      mob.css("top", cell.offset().top+"px")
-      .css("left", cell.offset().left+"px");
-
-      setTimeout(function(){
-        //console.log("Poring-"+id+" moving to x:"+elem[0]+" y:"+elem[1])
-        mob.css("top", cell.offset().top+"px")
-        .css("left", cell.offset().left+"px");
-      },i*(walkSpeed*800))
-    });
+    var cell = $("#map-grid").find("#cell-"+data[0]+"-"+data[1]+"");
+    mob.css("top", cell.offset().top+"px")
+    .css("left", cell.offset().left+"px");
   }
 }
