@@ -3,12 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"golang.org/x/net/websocket"
 )
 
 // Map generic struct
 type Map struct {
+	mu      *sync.Mutex
 	id      string
 	name    string
 	size    [2]int64
@@ -20,6 +22,7 @@ type Map struct {
 // NewMap instance for server
 func NewMap(id, name string, size [2]int64) *Map {
 	return &Map{
+		mu:      &sync.Mutex{},
 		id:      id,
 		name:    name,
 		size:    size,
@@ -29,14 +32,18 @@ func NewMap(id, name string, size [2]int64) *Map {
 }
 
 // Run map functionability
-func (m *Map) Run() {
+func (m *Map) Run(loadedMap chan<- bool) {
 	m.loadMobs()
+	loadedMap <- true
 	go m.Socket()
 }
 
 // ----------------- Monsters ------------------ //
 
 func (m *Map) loadMobs() {
+	var tMobs int
+	var loadedMobs int
+	loadedMob := make(chan bool)
 
 	//TODO: Loop to load mobs from db or json file
 
@@ -50,8 +57,22 @@ func (m *Map) loadMobs() {
 		m.mobs[mob.memID] = mob
 	}
 
+	tMobs = len(m.mobs)
+
 	for _, mb := range m.mobs {
-		go mb.Run()
+		go mb.Run(loadedMob)
+	}
+
+mobCheckLoop:
+	for {
+		select {
+		case <-loadedMob:
+			loadedMobs++
+			totalMobs++
+			if loadedMobs == tMobs {
+				break mobCheckLoop
+			}
+		}
 	}
 }
 
@@ -102,17 +123,23 @@ func (m *Map) Socket() {
 
 func (m *Map) rangeSockets(cmd, data string) {
 	data = fmt.Sprintf("%s:%s\n", cmd, data)
+	m.mu.Lock()
 	for _, sock := range m.sockets {
 		go func(sock *websocket.Conn, data string) {
 			sock.Write([]byte(data))
 		}(sock, data)
 	}
+	m.mu.Unlock()
 }
 
 func (m *Map) addSocket(address string, ws *websocket.Conn) {
+	m.mu.Lock()
 	m.sockets[address] = ws
+	m.mu.Unlock()
 }
 
 func (m *Map) delSocket(address string) {
+	m.mu.Lock()
 	delete(m.sockets, address)
+	m.mu.Unlock()
 }

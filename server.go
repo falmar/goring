@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -11,9 +12,16 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+var totalMobs int
+var totalMaps int
+
 func main() {
 	rand.Seed(time.Now().UnixNano())
-	startMapServer()
+	mapChan := make(chan bool)
+	go startMapServer(mapChan)
+	<-mapChan
+	fmt.Println("Total Maps loaded:", totalMaps)
+	fmt.Println("Total Monsters loaded:", totalMobs)
 	go startWebSocketServer()
 	startHTTPServer()
 }
