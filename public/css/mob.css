@@ -1,0 +1,17 @@
+.mob-1002 {
+  width: 41px;
+  height: 39px;
+  background: url("http://placehold.it/47x39");
+  position: absolute;
+}
+
+.mob-1049 {
+  width: 17px;
+  height: 38px;
+  background: url("http://placehold.it/38x39");
+  position: absolute;
+}
+
+.row-border {
+  border: solid 2px #CCC;
+}

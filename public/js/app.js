@@ -1,17 +1,11 @@
 
 $(document).ready(function(){
 
-  $("#map_form").submit(function(e) {
-    e.preventDefault();
-
-    $.ajax({
-      url: "/getMap",
-      dataType: 'json'
-      success: function(data) {
-        alert(data.id)
-      }
-    })
-
+  $("#map_form").submit(function(e){
+    e.preventDefault()
+    var mapID = $(this).find("#map-id").val();
+    if(mapID) {
+      loadMap(mapID);
+    }
   });
-
-})
+});

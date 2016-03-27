@@ -3,16 +3,30 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
+
+	"golang.org/x/net/websocket"
+)
+
+const (
+	mobStatusIdle = iota
+	mobStatusMoving
+	mobStatusCombat
 )
 
 // Monster basic interface
 type Monster struct {
+	mu         *sync.Mutex
+	statusChan chan string
+	cmdChan    chan string
+	memID      string
 	id         int64
 	name       string
 	hp         int64
+	maxHP      int64
 	level      int64
-	basemap    *Map
+	baseMap    *Map
 	positionX  int64
 	positionY  int64
 	sightRange int64
@@ -20,102 +34,144 @@ type Monster struct {
 	walkSpeed  float64
 	walkRoute  [][]int64
 	idleRange  []int64
+	status     int64
+	sockets    map[string]*websocket.Conn
 }
 
-var retry int
-
 // NewMonster instance for maps
-func NewMonster(id int64, basemap *Map) *Monster {
-	return &Monster{
+func NewMonster(id int64, baseMap *Map) *Monster {
+	m := &Monster{
+		mu:         &sync.Mutex{},
+		statusChan: make(chan string),
+		cmdChan:    make(chan string),
 		id:         id,
 		name:       "Poring",
 		hp:         50,
 		level:      1,
-		basemap:    basemap,
-		positionX:  random(1, basemap.size),
-		positionY:  random(1, basemap.size),
+		baseMap:    baseMap,
+		positionX:  random(1, baseMap.size[0]),
+		positionY:  random(1, baseMap.size[1]),
 		walkRange:  6,
-		walkSpeed:  1.2,
-		idleRange:  []int64{1, 4},
+		walkSpeed:  1.6,
+		idleRange:  []int64{2, 6},
 		sightRange: 12,
+		sockets:    map[string]*websocket.Conn{},
 	}
+
+	m.memID = fmt.Sprintf("%p", m)
+
+	return m
 }
 
 // Run start monster functions
-func (m *Monster) Run() {
-	go m.Move()
-	//go m.getStatus()
+func (m *Monster) Run(loadedMob chan<- bool) {
+
+	go func() {
+		for {
+			select {
+			case cmd := <-m.statusChan:
+				switch cmd {
+				case "idle":
+					go m.move()
+				case "sight":
+					go m.sight()
+				}
+			}
+		}
+	}()
+
+	go m.socket()
+	go m.move()
+
+	loadedMob <- true
 }
 
+// ----------------- Random Movement ------------------ //
+
 // Move the monster around the map
-func (m *Monster) Move() {
-	timer := time.NewTimer(time.Second * time.Duration(random(m.idleRange[0], m.idleRange[1])))
-	<-timer.C
+func (m *Monster) move() {
 	oX := m.positionX
 	oY := m.positionY
 	var nX int64
 	var nY int64
 
 	for {
-		for {
-			nX = oX + random(m.walkRange*-1, m.walkRange)
-			if nX > 1 && nX < m.basemap.size {
-				break
-			}
-		}
-
-		for {
-			nY = oY + random(m.walkRange*-1, m.walkRange)
-			if nY > 1 && nY < m.basemap.size {
-				break
-			}
-		}
-
-		if route, ok := m.routeWalk(oX, oY, nX, nY); ok {
-			m.walkRoute = route
-			for i := 0; i < len(route); i++ {
-				walkTimer := time.NewTimer(time.Duration(m.walkSpeed*1000) * time.Millisecond)
-				<-walkTimer.C
-				m.positionX = nX
-				m.positionY = nY
-			}
+		nX = oX + random(m.walkRange*-1, m.walkRange)
+		if nX > 1 && nX < m.baseMap.size[0] {
 			break
 		}
 	}
 
-	//fmt.Println(fmt.Sprintf("%s moving to X:%d Y:%d", m.name, nX, nY))
-	m.Move()
+	for {
+		nY = oY + random(m.walkRange*-1, m.walkRange)
+		if nY > 1 && nY < m.baseMap.size[1] {
+			break
+		}
+	}
+
+	for {
+		if route, ok := m.routeWalk(oX, oY, nX, nY); ok {
+			m.mu.Lock()
+			m.walkRoute = route
+			m.mu.Unlock()
+			m.cmdChan <- "move"
+			walkTicker := time.NewTicker(time.Duration(m.walkSpeed*1000) * time.Millisecond)
+			m.status = mobStatusMoving
+			for i := 0; i < len(route); i++ {
+				if m.status != mobStatusMoving {
+					return
+				}
+				<-walkTicker.C
+				m.mu.Lock()
+				m.positionX = route[i][0]
+				m.positionY = route[i][1]
+				m.mu.Unlock()
+			}
+			m.status = mobStatusIdle
+			m.statusChan <- "idle"
+			break
+		}
+	}
 }
 
 func (m *Monster) routeWalk(oX, oY, nX, nY int64) ([][]int64, bool) {
-	var X, Y int64 = oX, oY
 	var route [][]int64
 	var movements int64
+	var retry int
 
 	for {
-		X, Y = m.routeXY(X, nX, Y, nY)
+		route = [][]int64{}
+		var X, Y int64 = oX, oY
+		movements = 0
 
-		movements++
+		for {
+			X, Y = m.routeXY(X, nX, Y, nY)
+
+			movements++
+			if movements > m.walkRange {
+				break
+			}
+
+			route = append(route, []int64{X, Y})
+
+			if X == nX && Y == nY {
+				break
+			}
+		}
+
+		//TODO: Fix route is never bigger than walkRange
+
 		if movements > m.walkRange {
-			break
+			retry++
+			if retry > 10 {
+				return route, false
+			}
+			continue
 		}
 
-		route = append(route, []int64{X, Y})
-
-		if X == nX && Y == nY {
-			break
-		}
+		break
 	}
 
-	if int64(len(route)) > m.walkRange {
-		retry++
-		if retry > 6 {
-			return route, false
-		}
-		return m.routeWalk(oX, oY, nX, nY)
-	}
-
-	retry = 0
 	return route, true
 }
 
@@ -125,12 +181,12 @@ func (m *Monster) routeXY(X, nX, Y, nY int64) (int64, int64) {
 
 	if (r == 1 || Y == nY) && X != nX {
 		X = m.routeX(X, nX)
-		if dr > 65 && dr < 100 {
+		if dr > 50 && dr < 100 {
 			Y = m.routeX(Y, nY)
 		}
 	} else if (r == 2 || X == nX) && Y != nY {
 		Y = m.routeY(Y, nY)
-		if dr > 0 && dr < 45 {
+		if dr > 0 && dr < 50 {
 			X = m.routeX(X, nX)
 		}
 	}
@@ -156,16 +212,69 @@ func (m *Monster) routeY(Y, nY int64) int64 {
 	return Y
 }
 
-func (m *Monster) getStatus() {
+// ----------------- sight ------------------ //
+
+func (m *Monster) sight() {
+
+}
+
+// ----------------- Basic Info ------------------ //
+
+func (m *Monster) getBasicInfo() []byte {
+	m.mu.Lock()
 	mob := map[string]interface{}{
+		"id":        m.id,
 		"hp":        m.hp,
-		"walkRoute": m.walkRoute,
+		"positionX": m.positionX,
+		"positionY": m.positionY,
+		"walkSpeed": m.walkSpeed,
 	}
+	m.mu.Unlock()
 	b, _ := json.Marshal(mob)
-	fmt.Println(fmt.Sprintf("Mob Info (%d)", m.id), " ", string(b))
+	return b
+}
 
-	timer := time.NewTimer(500 * time.Millisecond)
-	<-timer.C
+// ----------------- Socket ------------------ //
 
-	m.getStatus()
+//Socket for map output data about the map commands and changes
+// for JS browser to handle
+func (m *Monster) socket() {
+	for {
+		select {
+		case cmd := <-m.cmdChan:
+
+			jsonData := []byte{}
+
+			switch cmd {
+			case "move":
+				route := m.walkRoute
+				jsonData, _ = json.Marshal(route)
+			}
+
+			go m.rangeSockets(cmd, string(jsonData))
+		}
+	}
+}
+
+func (m *Monster) rangeSockets(cmd, data string) {
+	data = fmt.Sprintf("%s:%s\n", cmd, data)
+	m.mu.Lock()
+	for _, sock := range m.sockets {
+		go func(sock *websocket.Conn, data string) {
+			sock.Write([]byte(data))
+		}(sock, data)
+	}
+	m.mu.Unlock()
+}
+
+func (m *Monster) addSocket(address string, ws *websocket.Conn) {
+	m.mu.Lock()
+	m.sockets[address] = ws
+	m.mu.Unlock()
+}
+
+func (m *Monster) delSocket(address string) {
+	m.mu.Lock()
+	delete(m.sockets, address)
+	m.mu.Unlock()
 }
