@@ -20,6 +20,7 @@ type Monster struct {
 	mu         *sync.Mutex
 	statusChan chan string
 	cmdChan    chan string
+	sockets    map[string]*websocket.Conn
 	memID      string
 	id         int64
 	name       string
@@ -35,7 +36,7 @@ type Monster struct {
 	walkRoute  []int64
 	idleRange  []int64
 	status     int64
-	sockets    map[string]*websocket.Conn
+	aggresive  bool
 }
 
 // NewMonster instance for maps
@@ -44,6 +45,7 @@ func NewMonster(id int64, baseMap *Map) *Monster {
 		mu:         &sync.Mutex{},
 		statusChan: make(chan string),
 		cmdChan:    make(chan string),
+		sockets:    map[string]*websocket.Conn{},
 		id:         id,
 		name:       "Poring",
 		hp:         50,
@@ -54,8 +56,9 @@ func NewMonster(id int64, baseMap *Map) *Monster {
 		walkRange:  6,
 		walkSpeed:  1.6,
 		idleRange:  []int64{2, 4},
-		sightRange: 12,
-		sockets:    map[string]*websocket.Conn{},
+		sightRange: 3,
+		aggresive:  true,
+		status:     mobStatusIdle,
 	}
 
 	m.memID = fmt.Sprintf("%p", m)
@@ -74,7 +77,7 @@ func (m *Monster) Run(loadedMob chan<- bool) {
 				case "idle":
 					go m.move()
 				case "sight":
-					go m.sight()
+					//go m.sight()
 				}
 			}
 		}
@@ -82,6 +85,9 @@ func (m *Monster) Run(loadedMob chan<- bool) {
 
 	go m.socket()
 	go m.move()
+	if m.aggresive {
+		//go m.sight()
+	}
 
 	loadedMob <- true
 }
@@ -92,8 +98,7 @@ func (m *Monster) Run(loadedMob chan<- bool) {
 func (m *Monster) move() {
 	idle := time.NewTimer(time.Duration(random(m.idleRange[0], m.idleRange[1])) * time.Second)
 	<-idle.C
-	oX := m.positionX
-	oY := m.positionY
+	oX, oY := m.getXY()
 	var nX int64
 	var nY int64
 
@@ -114,9 +119,14 @@ func (m *Monster) move() {
 	for {
 		if route, ok := m.routeMove(oX, oY, nX, nY); ok {
 			walkTicker := time.NewTicker(time.Duration(m.walkSpeed*1000) * time.Millisecond)
-			m.status = mobStatusMoving
+			if m.getStatus() != mobStatusIdle {
+				fmt.Println("Dont move...")
+				return
+			}
+			m.setStatus(mobStatusMoving)
 			for i := 0; i < len(route); i++ {
-				if m.status != mobStatusMoving {
+				if m.getStatus() != mobStatusMoving {
+					fmt.Println("Stop moving")
 					return
 				}
 				if i > 0 {
@@ -124,19 +134,18 @@ func (m *Monster) move() {
 				}
 				m.mu.Lock()
 				m.walkRoute = []int64{route[i][0], route[i][1]}
-				m.positionX = route[i][0]
-				m.positionY = route[i][1]
-				m.cmdChan <- "move"
 				m.mu.Unlock()
+				m.setXY(route[i][0], route[i][1])
+				m.cmdChan <- "move"
 			}
-			m.status = mobStatusIdle
+			m.setStatus(mobStatusIdle)
 			m.statusChan <- "idle"
 			break
 		}
 	}
 }
 
-func (m *Monster) routeMove(oX, oY, nX, nY int64) ([][]int64, bool) {
+func (m Monster) routeMove(oX, oY, nX, nY int64) ([][]int64, bool) {
 	var route [][]int64
 	var movements int64
 	var retry int
@@ -175,7 +184,7 @@ func (m *Monster) routeMove(oX, oY, nX, nY int64) ([][]int64, bool) {
 	return route, true
 }
 
-func (m *Monster) routeXY(X, nX, Y, nY int64) (int64, int64) {
+func (m Monster) routeXY(X, nX, Y, nY int64) (int64, int64) {
 	r := random(1, 2)
 	dr := random(1, 100)
 
@@ -194,7 +203,7 @@ func (m *Monster) routeXY(X, nX, Y, nY int64) (int64, int64) {
 	return X, Y
 }
 
-func (m *Monster) routeX(X, nX int64) int64 {
+func (m Monster) routeX(X, nX int64) int64 {
 	if X > nX {
 		X--
 	} else if X < nX {
@@ -203,7 +212,7 @@ func (m *Monster) routeX(X, nX int64) int64 {
 	return X
 }
 
-func (m *Monster) routeY(Y, nY int64) int64 {
+func (m Monster) routeY(Y, nY int64) int64 {
 	if Y > nY {
 		Y--
 	} else if Y < nY {
@@ -215,7 +224,166 @@ func (m *Monster) routeY(Y, nY int64) int64 {
 // ----------------- sight ------------------ //
 
 func (m *Monster) sight() {
+	timer := time.NewTimer(100 * time.Millisecond)
+	<-timer.C
 
+	if m.getStatus() == mobStatusCombat {
+		fmt.Println("Dont sight")
+		return
+	}
+
+	x, y := m.getXY()
+	var mapMaxX, mapMaxY int64 = m.baseMap.size[0], m.baseMap.size[1]
+	var minX, minY, maxX, maxY int64
+
+	if minX = x - m.sightRange; minX < 1 {
+		minX = 1
+	}
+	if maxX = x + m.sightRange; maxX > mapMaxX {
+		maxX = mapMaxX
+	}
+	if minY = y - m.sightRange; minY < 1 {
+		minY = 1
+	}
+	if maxY = y + m.sightRange; maxY > mapMaxY {
+		maxY = mapMaxY
+	}
+
+	players := m.baseMap.players
+	var targets []*Player
+
+	for _, p := range players {
+		tX, tY := p.getXY()
+		if minX <= tX && maxX >= tX && minY <= tY && maxY >= tY {
+			targets = append(targets, p)
+		}
+	}
+
+	if targets != nil {
+		m.setStatus(mobStatusCombat)
+
+		var closestChan = make(chan int, len(targets))
+		for i, t := range targets {
+			tX, tY := t.getXY()
+			go m.calculateClosestTarget(i, closestChan, x, y, tX, tY)
+		}
+
+		target := targets[<-closestChan]
+		close(closestChan)
+
+		fmt.Println("Target: ")
+		fmt.Println(target)
+	}
+
+	//fmt.Println(targets)
+
+	//route = m.calculateClosestRoute(x, y, nX, nY)
+
+	if m.getStatus() != mobStatusCombat {
+		m.statusChan <- "sight"
+	}
+}
+
+// ----------------- Calculate closest Target & Route ------------------ //
+
+func (m *Monster) calculateClosestTarget(i int, closestChan chan int, x, y, nX, nY int64) {
+	for {
+		x = m.routeX(x, nX)
+		y = m.routeY(y, nY)
+
+		if x == nX && y == nY {
+			closestChan <- i
+			break
+		}
+	}
+}
+
+func (m *Monster) calculateClosestRoute(oX, oY, tX, tY int64) [][2]int64 {
+	var x, y int64 = oX, oY
+	var nX, nY int64
+	var attackRange int64 = 1
+	var minX, minY, maxX, maxY int64 = oX - attackRange, oY - attackRange, oX + attackRange, oY + attackRange
+	var route [][2]int64
+
+	minMaxFunc := func(minX, maxX, minY, maxY, tX, tY int64) bool {
+		if minX <= tX && maxX >= tX && minY <= tY && maxY >= tY {
+			return true
+		}
+		return false
+	}
+
+	if !minMaxFunc(minX, maxX, minY, maxY, tX, tY) {
+		if tX > oX {
+			if (tX - oX) < attackRange {
+				nX = oX + (tX - oX)
+			} else {
+				nX = tX - attackRange
+			}
+		} else {
+			if (oX - tX) < attackRange {
+				nX = oX - (oX - tX)
+			} else {
+				nX = tX + attackRange
+			}
+		}
+
+		if tY > oY {
+			if (tY - oY) < attackRange {
+				nY = oY - (tY - oY)
+			} else {
+				nY = tY - attackRange
+			}
+		} else {
+			if (oY - tY) < attackRange {
+				nY = oY - (oY - tY)
+			} else {
+				nY = tY + attackRange
+			}
+		}
+
+		minX, minY, maxX, maxY = nX-attackRange, nY-attackRange, nX+attackRange, nY+attackRange
+
+		if minMaxFunc(minX, maxX, minY, maxY, nX, nY) {
+			fmt.Println("Calculate route...")
+		}
+
+		for {
+			x = m.routeX(x, nX)
+			y = m.routeY(y, nY)
+			route = append(route, [2]int64{x, y})
+			if x == nX && y == nY {
+				break
+			}
+		}
+	}
+
+	return route
+}
+
+// ----------------- getters / setters ------------------ //
+
+func (m *Monster) setXY(x, y int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.positionX, m.positionY = x, y
+}
+
+func (m *Monster) getXY() (int64, int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.positionX, m.positionY
+}
+
+func (m *Monster) setStatus(status int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.status = status
+}
+
+func (m *Monster) getStatus() int64 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.status
 }
 
 // ----------------- Basic Info ------------------ //

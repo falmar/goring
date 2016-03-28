@@ -12,6 +12,20 @@
   position: absolute;
 }
 
+.player {
+  width: 64px;
+  height: 42px;
+  background: url("http://placehold.it/64x42?text=player");
+  position: absolute;
+}
+
 .row-border {
   border: solid 2px #CCC;
+}
+
+#map-grid td {
+  background-color: #FFF;
+}
+#map-grid td:hover {
+  background-color: #CCC;
 }
