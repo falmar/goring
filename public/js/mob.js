@@ -2,6 +2,7 @@
 
 var mobSockets = []
 var Mobs = []
+var MobIDs = []
 
 function loadMobs(mobs,mapID) {
 
@@ -10,12 +11,13 @@ function loadMobs(mobs,mapID) {
       e.close()
     });
 
-    Mobs.forEach(function(e,i){
-      $("mob-".e.memID).remove()
+    MobIDs.forEach(function(e,i){
+      $("#mob-"+e).remove()
     });
   }
 
-  var mobSockets = []
+  mobSockets = []
+  Mobs = []
 
   var wsuri = "ws://127.0.0.1:9020/getMob";
 
@@ -46,6 +48,7 @@ function loadMobs(mobs,mapID) {
         switch(cmd) {
           case "info":
             Mobs[mobID] = new Mob(mobID, data)
+            MobIDs.push(mobID)
             break;
           case "move":
             Mobs[mobID].move(data)
