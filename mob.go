@@ -77,7 +77,7 @@ func (m *Monster) Run(loadedMob chan<- bool) {
 				case "idle":
 					go m.move()
 				case "sight":
-					//go m.sight()
+					go m.sight()
 				}
 			}
 		}
@@ -86,7 +86,7 @@ func (m *Monster) Run(loadedMob chan<- bool) {
 	go m.socket()
 	go m.move()
 	if m.aggresive {
-		//go m.sight()
+		go m.sight()
 	}
 
 	loadedMob <- true
@@ -410,9 +410,7 @@ func (m *Monster) socket() {
 	for {
 		select {
 		case cmd := <-m.cmdChan:
-
 			jsonData := []byte{}
-
 			switch cmd {
 			case "move":
 				route := m.walkRoute
@@ -427,12 +425,13 @@ func (m *Monster) socket() {
 func (m *Monster) rangeSockets(cmd, data string) {
 	data = fmt.Sprintf("%s:%s\n", cmd, data)
 	m.mu.Lock()
-	for _, sock := range m.sockets {
+	sockets := m.sockets
+	m.mu.Unlock()
+	for _, sock := range sockets {
 		go func(sock *websocket.Conn, data string) {
 			sock.Write([]byte(data))
 		}(sock, data)
 	}
-	m.mu.Unlock()
 }
 
 func (m *Monster) addSocket(address string, ws *websocket.Conn) {
