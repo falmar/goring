@@ -1,4 +1,8 @@
+var playersIDs = [];
+
 function loadPlayers(players){
+
+  $("#player-"+players[0]).remove();
 
   $("body").append("<div class='player' id='player-"+players[0]+"'></div>");
 
@@ -6,7 +10,7 @@ function loadPlayers(players){
 
   player = $("#player-"+players[0]);
 
-  player.css("top", cell.offset().top+"px")
+  player.css("top", cell.offset().top-50+"px")
   .css("left", cell.offset().left+"px");
 
 }

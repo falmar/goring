@@ -75,15 +75,20 @@ var Mob = function(id, data) {
   this.positionY = data.positionY;
   this.walkSpeed = data.walkSpeed;
 
-  $("body").append("<div class='mob-"+this.id+"' id='mob-"+this.memID+"'></div>");
+  $("body").append("<div class='hide mob-"+this.id+"' id='mob-"+this.memID+"'></div>");
 
   var mob = $("#mob-"+this.memID)
   .css("transition","top "+this.walkSpeed+"s, left "+this.walkSpeed+"s");
 
   var cell = $("#map-grid").find("#cell-"+this.positionX+"-"+this.positionY+"");
 
-  mob.css("top", cell.offset().top+"px")
-  .css("left", cell.offset().left+"px");
+  if (!data.dead) {
+    mob.removeClass('hide');
+    mob.css("top", cell.offset().top+"px")
+    .css("left", cell.offset().left+"px");
+  }
+
+
 
   this.move = function(data) {
     var cell = $("#map-grid").find("#cell-"+data[0]+"-"+data[1]+"");

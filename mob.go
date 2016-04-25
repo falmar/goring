@@ -58,10 +58,10 @@ func NewMonster(id int64, baseMap *Map) *Monster {
 		walkRange:   6,
 		walkSpeed:   1.6,
 		idleRange:   []int64{2, 4},
-		sightRange:  7,
+		sightRange:  4,
 		aggresive:   true,
 		status:      mobStatusIdle,
-		respawnTime: [2]int64{10, 50},
+		respawnTime: [2]int64{1, 10},
 	}
 
 	m.memID = fmt.Sprintf("%p", m)
@@ -137,16 +137,20 @@ func (m *Monster) move() {
 			}
 			m.setStatus(mobStatusMoving)
 			for i := 0; i < len(route); i++ {
+				if i > 0 {
+					<-walkTicker.C
+				}
 				if m.getStatus() != mobStatusMoving {
 					fmt.Println("Stop moving")
 					return
 				}
-				if i > 0 {
-					<-walkTicker.C
-				}
 				m.mu.Lock()
 				m.walkRoute = []int64{route[i][0], route[i][1]}
 				m.mu.Unlock()
+				if m.getStatus() != mobStatusMoving {
+					fmt.Println("Stop moving 2")
+					return
+				}
 				m.setXY(route[i][0], route[i][1])
 				m.cmdChan <- "move"
 			}
@@ -246,6 +250,7 @@ func (m *Monster) sight() {
 	}
 
 	x, y := m.getXY()
+
 	var mapMaxX, mapMaxY int64 = m.baseMap.size[0], m.baseMap.size[1]
 	var minX, minY, maxX, maxY int64
 
@@ -274,6 +279,7 @@ func (m *Monster) sight() {
 
 	if targets != nil {
 		m.setStatus(mobStatusCombat)
+		x, y = m.getXY()
 
 		var closestChan = make(chan int, len(targets))
 		for i, t := range targets {
@@ -288,6 +294,7 @@ func (m *Monster) sight() {
 		nX, nY := target.getXY()
 
 		fmt.Println("Target found: X,Y", nX, nY)
+		fmt.Println("Own X,Y", x, y)
 		route := m.calculateClosestRoute(x, y, nX, nY)
 		walkTicker := time.NewTicker(time.Duration(m.walkSpeed*1000) * time.Millisecond)
 		for i := 0; i < len(route); i++ {
@@ -301,6 +308,8 @@ func (m *Monster) sight() {
 			m.setXY(route[i][0], route[i][1])
 			m.cmdChan <- "move"
 		}
+
+		<-walkTicker.C
 
 		m.statusChan <- "die"
 		return
@@ -391,26 +400,25 @@ func (m *Monster) calculateClosestRoute(oX, oY, tX, tY int64) [][2]int64 {
 // ----------------- Die / Respawn ------------------ //
 
 func (m *Monster) die() {
-	fmt.Println("Die.....")
+	respawn := time.Duration(random(m.respawnTime[0], m.respawnTime[1])) * time.Second
+	fmt.Println("Die.....", respawn)
 	m.setStatus(mobStatusDead)
 	m.cmdChan <- "die"
-	fmt.Println(random(m.respawnTime[0], m.respawnTime[1]))
-	<-time.NewTimer(time.Duration(random(m.respawnTime[0], m.respawnTime[1])) * time.Second).C
+	<-time.NewTimer(respawn).C
 	m.statusChan <- "respawn"
 }
 
 func (m *Monster) respawn() {
-	fmt.Println("Respawning....")
 	m.hp = m.maxHP
 	m.positionX = random(1, m.baseMap.size[0])
 	m.positionY = random(1, m.baseMap.size[1])
 	m.setStatus(mobStatusIdle)
+	fmt.Println("Respawning....")
 	m.cmdChan <- "respawn"
 	m.spawnStatus()
 }
 
 func (m *Monster) spawnStatus() {
-	fmt.Println("writing statutes")
 	m.statusChan <- "idle"
 	m.statusChan <- "sight"
 }
@@ -445,12 +453,17 @@ func (m *Monster) getStatus() int64 {
 
 func (m *Monster) getBasicInfo() []byte {
 	m.mu.Lock()
+	dead := false
+	if m.status == mobStatusDead {
+		dead = true
+	}
 	mob := map[string]interface{}{
 		"id":        m.id,
 		"hp":        m.hp,
 		"positionX": m.positionX,
 		"positionY": m.positionY,
 		"walkSpeed": m.walkSpeed,
+		"dead":      dead,
 	}
 	m.mu.Unlock()
 	b, _ := json.Marshal(mob)

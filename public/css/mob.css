@@ -1,25 +1,23 @@
 .mob-1002 {
   width: 41px;
   height: 39px;
-  background: url("http://localhost:8080/src/img/hangerlogo.jpg");
+  background: url("/src/img/1002.gif");
   position: absolute;
 }
 
 .mob-1049 {
   width: 17px;
   height: 38px;
-  background: url("http://placehold.it/38x39");
+  background: url("/src/img/1049.gif");
   position: absolute;
   background-position: center;
 }
 
 .player {
-  width: 64px;
-  height: 42px;
-  background: url("http://localhost:8080/src/img/hangerlogo.jpg");
-  background-color: rbg(0,200,0,);
+  width: 39px;
+  height: 100px;
+  background: url("/src/img/HvG3ku.png");
   position: absolute;
-  background-position: center;
 }
 
 .row-border {
