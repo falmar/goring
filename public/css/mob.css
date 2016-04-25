@@ -1,7 +1,7 @@
 .mob-1002 {
   width: 41px;
   height: 39px;
-  background: url("http://placehold.it/47x39");
+  background: url("http://localhost:8080/src/img/hangerlogo.jpg");
   position: absolute;
 }
 
@@ -10,13 +10,16 @@
   height: 38px;
   background: url("http://placehold.it/38x39");
   position: absolute;
+  background-position: center;
 }
 
 .player {
   width: 64px;
   height: 42px;
-  background: url("http://placehold.it/64x42?text=player");
+  background: url("http://localhost:8080/src/img/hangerlogo.jpg");
+  background-color: rbg(0,200,0,);
   position: absolute;
+  background-position: center;
 }
 
 .row-border {

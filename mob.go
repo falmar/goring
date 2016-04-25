@@ -12,53 +12,56 @@ import (
 const (
 	mobStatusIdle = iota
 	mobStatusMoving
+	mobStatusDead
 	mobStatusCombat
 )
 
 // Monster basic interface
 type Monster struct {
-	mu         *sync.Mutex
-	statusChan chan string
-	cmdChan    chan string
-	sockets    map[string]*websocket.Conn
-	memID      string
-	id         int64
-	name       string
-	hp         int64
-	maxHP      int64
-	level      int64
-	baseMap    *Map
-	positionX  int64
-	positionY  int64
-	sightRange int64
-	walkRange  int64
-	walkSpeed  float64
-	walkRoute  []int64
-	idleRange  []int64
-	status     int64
-	aggresive  bool
+	mu          *sync.Mutex
+	statusChan  chan string
+	cmdChan     chan string
+	sockets     map[string]*websocket.Conn
+	memID       string
+	id          int64
+	name        string
+	hp          int64
+	maxHP       int64
+	level       int64
+	baseMap     *Map
+	positionX   int64
+	positionY   int64
+	sightRange  int64
+	walkRange   int64
+	walkSpeed   float64
+	walkRoute   []int64
+	idleRange   []int64
+	status      int64
+	aggresive   bool
+	respawnTime [2]int64
 }
 
 // NewMonster instance for maps
 func NewMonster(id int64, baseMap *Map) *Monster {
 	m := &Monster{
-		mu:         &sync.Mutex{},
-		statusChan: make(chan string),
-		cmdChan:    make(chan string),
-		sockets:    map[string]*websocket.Conn{},
-		id:         id,
-		name:       "Poring",
-		hp:         50,
-		level:      1,
-		baseMap:    baseMap,
-		positionX:  random(1, baseMap.size[0]),
-		positionY:  random(1, baseMap.size[1]),
-		walkRange:  6,
-		walkSpeed:  1.6,
-		idleRange:  []int64{2, 4},
-		sightRange: 3,
-		aggresive:  true,
-		status:     mobStatusIdle,
+		mu:          &sync.Mutex{},
+		statusChan:  make(chan string),
+		cmdChan:     make(chan string),
+		sockets:     map[string]*websocket.Conn{},
+		id:          id,
+		name:        "Poring",
+		hp:          50,
+		level:       1,
+		baseMap:     baseMap,
+		positionX:   random(1, baseMap.size[0]),
+		positionY:   random(1, baseMap.size[1]),
+		walkRange:   6,
+		walkSpeed:   1.6,
+		idleRange:   []int64{2, 4},
+		sightRange:  7,
+		aggresive:   true,
+		status:      mobStatusIdle,
+		respawnTime: [2]int64{10, 50},
 	}
 
 	m.memID = fmt.Sprintf("%p", m)
@@ -77,17 +80,21 @@ func (m *Monster) Run(loadedMob chan<- bool) {
 				case "idle":
 					go m.move()
 				case "sight":
-					go m.sight()
+					if m.aggresive {
+						go m.sight()
+					}
+				case "die":
+					go m.die()
+				case "respawn":
+					go m.respawn()
 				}
+
 			}
 		}
 	}()
 
 	go m.socket()
-	go m.move()
-	if m.aggresive {
-		go m.sight()
-	}
+	m.spawnStatus()
 
 	loadedMob <- true
 }
@@ -96,6 +103,11 @@ func (m *Monster) Run(loadedMob chan<- bool) {
 
 // Move the monster around the map
 func (m *Monster) move() {
+
+	if m.getStatus() == mobStatusDead {
+		return
+	}
+
 	idle := time.NewTimer(time.Duration(random(m.idleRange[0], m.idleRange[1])) * time.Second)
 	<-idle.C
 	oX, oY := m.getXY()
@@ -224,10 +236,11 @@ func (m Monster) routeY(Y, nY int64) int64 {
 // ----------------- sight ------------------ //
 
 func (m *Monster) sight() {
-	timer := time.NewTimer(100 * time.Millisecond)
-	<-timer.C
+	<-time.NewTimer(100 * time.Millisecond).C
 
-	if m.getStatus() == mobStatusCombat {
+	currentStatus := m.getStatus()
+
+	if currentStatus == mobStatusCombat || currentStatus == mobStatusDead {
 		fmt.Println("Dont sight")
 		return
 	}
@@ -271,13 +284,27 @@ func (m *Monster) sight() {
 		target := targets[<-closestChan]
 		close(closestChan)
 
-		fmt.Println("Target: ")
-		fmt.Println(target)
+		// Simulate combat
+		nX, nY := target.getXY()
+
+		fmt.Println("Target found: X,Y", nX, nY)
+		route := m.calculateClosestRoute(x, y, nX, nY)
+		walkTicker := time.NewTicker(time.Duration(m.walkSpeed*1000) * time.Millisecond)
+		for i := 0; i < len(route); i++ {
+			if i > 0 {
+				<-walkTicker.C
+			}
+			m.mu.Lock()
+			m.walkRoute = []int64{route[i][0], route[i][1]}
+			fmt.Println("Moving to target:", route[i][0], route[i][1])
+			m.mu.Unlock()
+			m.setXY(route[i][0], route[i][1])
+			m.cmdChan <- "move"
+		}
+
+		m.statusChan <- "die"
+		return
 	}
-
-	//fmt.Println(targets)
-
-	//route = m.calculateClosestRoute(x, y, nX, nY)
 
 	if m.getStatus() != mobStatusCombat {
 		m.statusChan <- "sight"
@@ -345,19 +372,47 @@ func (m *Monster) calculateClosestRoute(oX, oY, tX, tY int64) [][2]int64 {
 
 		if minMaxFunc(minX, maxX, minY, maxY, nX, nY) {
 			fmt.Println("Calculate route...")
+			for {
+				x = m.routeX(x, nX)
+				y = m.routeY(y, nY)
+				route = append(route, [2]int64{x, y})
+				if x == nX && y == nY {
+					break
+				}
+			}
+			fmt.Println("Calculate route done...")
 		}
 
-		for {
-			x = m.routeX(x, nX)
-			y = m.routeY(y, nY)
-			route = append(route, [2]int64{x, y})
-			if x == nX && y == nY {
-				break
-			}
-		}
 	}
 
 	return route
+}
+
+// ----------------- Die / Respawn ------------------ //
+
+func (m *Monster) die() {
+	fmt.Println("Die.....")
+	m.setStatus(mobStatusDead)
+	m.cmdChan <- "die"
+	fmt.Println(random(m.respawnTime[0], m.respawnTime[1]))
+	<-time.NewTimer(time.Duration(random(m.respawnTime[0], m.respawnTime[1])) * time.Second).C
+	m.statusChan <- "respawn"
+}
+
+func (m *Monster) respawn() {
+	fmt.Println("Respawning....")
+	m.hp = m.maxHP
+	m.positionX = random(1, m.baseMap.size[0])
+	m.positionY = random(1, m.baseMap.size[1])
+	m.setStatus(mobStatusIdle)
+	m.cmdChan <- "respawn"
+	m.spawnStatus()
+}
+
+func (m *Monster) spawnStatus() {
+	fmt.Println("writing statutes")
+	m.statusChan <- "idle"
+	m.statusChan <- "sight"
 }
 
 // ----------------- getters / setters ------------------ //
@@ -415,6 +470,14 @@ func (m *Monster) socket() {
 			case "move":
 				route := m.walkRoute
 				jsonData, _ = json.Marshal(route)
+			case "die":
+				jsonData, _ = json.Marshal(nil)
+			case "respawn":
+				jsonData, _ = json.Marshal(map[string]interface{}{
+					"hp":        m.hp,
+					"positionX": m.positionX,
+					"positionY": m.positionY,
+				})
 			}
 
 			go m.rangeSockets(cmd, string(jsonData))
