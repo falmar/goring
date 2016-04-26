@@ -18,6 +18,7 @@ function loadMobs(mobs,mapID) {
 
   mobSockets = [];
   Mobs = [];
+  MobIDs = [];
 
   var wsuri = "ws://127.0.0.1:9020/getMob";
 
@@ -75,21 +76,8 @@ var Mob = function(id, data) {
   this.positionY = data.positionY;
   this.walkSpeed = data.walkSpeed;
 
-  $("body").append("<div class='hide mob-"+this.id+"' id='mob-"+this.memID+"'></div>");
-
-  var mob = $("#mob-"+this.memID)
-  .css("transition","top "+this.walkSpeed+"ms, left "+this.walkSpeed+"ms");
-
-  var cell = $("#map-grid").find("#cell-"+this.positionX+"-"+this.positionY+"");
-
-  if (!data.dead) {
-    mob.removeClass('hide');
-    mob.css("top", cell.offset().top+"px")
-    .css("left", cell.offset().left+"px");
-  }
-
   this.move = function(data) {
-    var cell = $("#map-grid").find("#cell-"+data[0]+"-"+data[1]+"");
+    cell = $("#map-grid").find("#cell-"+data[1]+"-"+data[0]+"");
     mob.css("top", cell.offset().top+"px")
     .css("left", cell.offset().left+"px");
   };
@@ -103,4 +91,17 @@ var Mob = function(id, data) {
     this.hp = data.hp;
     mob.removeClass('hide');
   };
+
+  // start
+
+  $("body").append("<div class='hide mob-"+this.id+"' id='mob-"+this.memID+"'></div>");
+
+  var mob = $("#mob-"+this.memID)
+  .css("transition","top "+this.walkSpeed+"ms, left "+this.walkSpeed+"ms");
+
+  if (!data.dead) {
+    this.move([this.positionX,this.positionY]);
+    mob.removeClass('hide');
+  }
+
 };

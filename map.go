@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"sync"
 
 	"golang.org/x/net/websocket"
@@ -36,15 +35,7 @@ func NewMap(id, name string, size [2]int64) *Map {
 
 // Run map functionability
 func (m *Map) Run(loadedMap chan<- bool) {
-	x, y := random(1, m.size[0]), random(1, m.size[1])
-	fmt.Println("Player at X:", x, "Y:", y)
-	m.players["singleton"] = &Player{
-		mu:        &sync.Mutex{},
-		positionX: x,
-		positionY: y,
-		dead:      false,
-		hp:        50,
-	}
+	m.loadPlayers()
 	m.loadMobs()
 	loadedMap <- true
 	go m.Socket()
@@ -88,6 +79,31 @@ mobCheckLoop:
 	}
 }
 
+// fake func
+func (m *Map) loadPlayers() {
+	fmt.Println("Player at X:", 10, "Y:", 10)
+	player := &Player{
+		currentMap: m,
+		mu:         &sync.Mutex{},
+		positionX:  10,
+		positionY:  10,
+		walkSpeed:  1200,
+		hp:         50,
+		maxHP:      50,
+		sockets:    map[string]*websocket.Conn{},
+		cmdChan:    make(chan string),
+		status:     playerStatusIdle,
+	}
+
+	player.memID = fmt.Sprintf("%p", player)
+
+	m.players[player.memID] = player
+
+	for _, p := range m.players {
+		go p.Run()
+	}
+}
+
 // ----------------- Basic Info ------------------ //
 
 func (m *Map) getBasicInfo() []byte {
@@ -97,10 +113,8 @@ func (m *Map) getBasicInfo() []byte {
 	}
 
 	var players []string
-	for _, p := range m.players {
-		players = append(players, fmt.Sprintf("%p", p))
-		x, y := p.getXY()
-		players = append(players, strconv.Itoa(int(x)), strconv.Itoa(int(y)))
+	for i := range m.players {
+		players = append(players, i)
 	}
 
 	tmap := map[string]interface{}{
@@ -119,6 +133,11 @@ func (m *Map) getBasicInfo() []byte {
 func (m *Map) getMob(mobID string) (*Monster, bool) {
 	mob, ok := m.mobs[mobID]
 	return mob, ok
+}
+
+func (m *Map) getPlayer(playerID string) (*Player, bool) {
+	player, ok := m.players[playerID]
+	return player, ok
 }
 
 // ----------------- Socket Functions ------------------ //

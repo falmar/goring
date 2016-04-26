@@ -61,7 +61,7 @@ func NewMonster(id int64, baseMap *Map) *Monster {
 		positionX:   random(1, baseMap.size[0]),
 		positionY:   random(1, baseMap.size[1]),
 		walkRange:   6,
-		walkSpeed:   1600,
+		walkSpeed:   800,
 		idleTime:    [2]int64{2, 4},
 		sightRange:  5,
 		aggresive:   true,
@@ -69,7 +69,7 @@ func NewMonster(id int64, baseMap *Map) *Monster {
 		respawnTime: [2]int64{1, 10},
 		attackPower: [2]int64{7, 10},
 		attackSpeed: 1870,
-		attackRange: 2,
+		attackRange: 1,
 	}
 
 	m.memID = fmt.Sprintf("%p", m)
@@ -132,7 +132,7 @@ func (m *Monster) move() {
 		}
 
 		if m.getStatus() != mobStatusIdle || m.getStatus() == mobStatusDead {
-			fmt.Println("Dont move...")
+			fmt.Println("Dont move... ", m.getStatus())
 			return
 		}
 
@@ -152,13 +152,15 @@ func (m *Monster) walk(route [][2]int64, requiredStatus int64) bool {
 	m.setStatus(requiredStatus)
 	var i int
 	for i = 0; i < len(route); i++ {
+		if i < len(route) {
+			<-time.NewTimer(time.Duration(m.walkSpeed) * time.Millisecond).C
+		}
 		if m.getStatus() != requiredStatus {
-			fmt.Println("Stop moving")
+			fmt.Println("Stop moving", m.getStatus())
 			return false
 		}
 		m.setXY(route[i][0], route[i][1])
 		m.cmdChan <- "move"
-		<-time.NewTimer(time.Duration(m.walkSpeed) * time.Millisecond).C
 	}
 
 	return len(route) == i
@@ -216,9 +218,9 @@ func (m *Monster) sight() {
 
 	if m.getTarget() == nil {
 
-		var targets = []*Player{}
+		var targets []*Player
 		for _, p := range m.baseMap.players {
-			if p.dead {
+			if p.getStatus() == playerStatusDead {
 				continue
 			}
 			tX, tY := p.getXY()
@@ -227,7 +229,9 @@ func (m *Monster) sight() {
 			}
 		}
 
-		if targets != nil {
+		if len(targets) > 0 {
+			fmt.Println("found target")
+			//TODO: Fix status
 			m.setStatus(mobStatusCombat)
 			x, y = m.getXY()
 
@@ -252,28 +256,31 @@ func (m *Monster) sight() {
 
 func (m *Monster) attack() {
 
+	fmt.Println("attack")
+
 	for {
 		target := m.getTarget()
 
-		if target == nil {
+		if target == nil || target.getStatus() == playerStatusDead {
+			m.setStatus(mobStatusIdle)
+			go m.spawnStatus()
 			return
 		}
 
 		x, y := m.getXY()
 		tX, tY := target.getXY()
 		if inAttackRange(x, y, tX, tY, m.attackRange) {
-			target.damage(random(m.attackPower[0], m.attackPower[1]))
-		} else {
+			<-time.NewTimer(time.Duration(m.attackSpeed) * time.Millisecond).C
+			if target.damage(random(m.attackPower[0], m.attackPower[1])) {
+				continue
+			}
+		} else if inSightRange(x, y, tX, tY, m.sightRange, m.baseMap) {
 			route := calculateClosestRoute(x, y, tX, tY, m.attackRange)
 			m.walk(route, mobStatusMovingCombat)
+			continue
 		}
 
-		if target.dead {
-			m.setStatus(mobStatusIdle)
-			go m.spawnStatus()
-			return
-		}
-		<-time.NewTimer(time.Duration(m.attackSpeed) * time.Millisecond).C
+		m.setTarget(nil)
 	}
 }
 
@@ -358,11 +365,12 @@ func (m *Monster) getStatus() int64 {
 // ----------------- Basic Info ------------------ //
 
 func (m *Monster) getBasicInfo() []byte {
-	m.mu.Lock()
+
 	dead := false
-	if m.status == mobStatusDead {
+	if m.getStatus() == mobStatusDead {
 		dead = true
 	}
+	m.mu.Lock()
 	mob := map[string]interface{}{
 		"id":        m.id,
 		"hp":        m.hp,

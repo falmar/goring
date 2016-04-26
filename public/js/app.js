@@ -8,4 +8,6 @@ $(document).ready(function(){
       loadMap(mapID);
     }
   });
+
+  loadMap('prontera');
 });
