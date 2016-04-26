@@ -1,16 +1,14 @@
 package main
 
-import "math/rand"
+import "fmt"
 
-func random(min, max int64) int64 {
-	return rand.Int63n(max-min) + min
-}
-
-func calculateClosestRoute(oX, oY, tX, tY, attackRange int64) [][2]int64 {
-	var x, y int64 = oX, oY
+func main() {
+	var x, y int64 = 9, 9
+	var oX, oY, tX, tY int64 = 9, 9, 4, 18
 	var nX, nY int64
+	var attackRange int64 = 1
 	var minX, minY, maxX, maxY int64 = oX - attackRange, oY - attackRange, oX + attackRange, oY + attackRange
-	var route [][2]int64
+	var route [][]int64
 
 	minMaxFunc := func(minX, maxX, minY, maxY, tX, tY int64) bool {
 		if minX <= tX && maxX >= tX && minY <= tY && maxY >= tY {
@@ -20,6 +18,7 @@ func calculateClosestRoute(oX, oY, tX, tY, attackRange int64) [][2]int64 {
 	}
 
 	if !minMaxFunc(minX, maxX, minY, maxY, tX, tY) {
+
 		if tX > oX {
 			if (tX - oX) < attackRange {
 				nX = oX + (tX - oX)
@@ -51,37 +50,25 @@ func calculateClosestRoute(oX, oY, tX, tY, attackRange int64) [][2]int64 {
 		minX, minY, maxX, maxY = nX-attackRange, nY-attackRange, nX+attackRange, nY+attackRange
 
 		if minMaxFunc(minX, maxX, minY, maxY, nX, nY) {
-			for {
-				x = routeX(x, nX)
-				y = routeY(y, nY)
-				route = append(route, [2]int64{x, y})
-				if x == nX && y == nY {
-					break
-				}
+			fmt.Println("Calculate route...")
+		}
+
+		for {
+			x = routeX(x, nX)
+			y = routeX(y, nY)
+
+			route = append(route, []int64{x, y})
+
+			if x == nX && y == nY {
+				break
 			}
 		}
+
 	}
 
-	return route
-}
+	fmt.Println(route)
 
-func routeXY(X, nX, Y, nY int64) (int64, int64) {
-	r := random(1, 2)
-	dr := random(1, 100)
-
-	if (r == 1 || Y == nY) && X != nX {
-		X = routeX(X, nX)
-		if dr > 33 && dr < 100 {
-			Y = routeX(Y, nY)
-		}
-	} else if (r == 2 || X == nX) && Y != nY {
-		Y = routeY(Y, nY)
-		if dr > 0 && dr < 67 {
-			X = routeX(X, nX)
-		}
-	}
-
-	return X, Y
+	fmt.Println(tX, tY, nX, nY)
 }
 
 func routeX(X, nX int64) int64 {

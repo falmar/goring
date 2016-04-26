@@ -34,6 +34,7 @@ function loadMap(mapID) {
         case "info":
           buildMapGrid(data.name,data.size)
           loadMobs(data.mobs,data.id)
+          loadPlayers(data.players,data.id)
           break;
       }
 
@@ -44,12 +45,12 @@ function loadMap(mapID) {
 }
 
 function buildMapGrid(name,size) {
-  var table = $("<span><table class='text-center'><thead><tr><th class='text-center' colspan='"+size[1]+"'>Map: "+name+"</th></tr></thead><tbody></tbody></table></span>");
+  var table = $("<span><table class='text-center'><thead><tr><th class='text-center' colspan='"+size[0]+"'>Map: "+name+"</th></tr></thead><tbody></tbody></table></span>");
 
-  for (f=0; f<size[0]; f++) {
+  for (f=1; f<=size[0]; f++) {
     var tr = $("<tr></tr>");
-    for (z = 0; z<size[1]; z++) {
-      var td = $("<td style='background-color: #FFF;'>&nbsp;</td>");
+    for (z = 1; z<=size[1]; z++) {
+      var td = $("<td>&nbsp;</td>");
       td.attr("id","cell-"+f+"-"+z);
       tr.append(td);
     }

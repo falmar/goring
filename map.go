@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"golang.org/x/net/websocket"
@@ -11,12 +12,13 @@ import (
 // Map generic struct
 type Map struct {
 	mu      *sync.Mutex
+	cmdChan chan string
 	id      string
 	name    string
 	size    [2]int64
 	mobs    map[string]*Monster
 	sockets map[string]*websocket.Conn
-	cmdChan chan string
+	players map[string]*Player
 }
 
 // NewMap instance for server
@@ -28,11 +30,19 @@ func NewMap(id, name string, size [2]int64) *Map {
 		size:    size,
 		sockets: make(map[string]*websocket.Conn),
 		mobs:    make(map[string]*Monster),
+		players: map[string]*Player{},
 	}
 }
 
 // Run map functionability
 func (m *Map) Run(loadedMap chan<- bool) {
+	x, y := random(1, m.size[0]), random(1, m.size[1])
+	fmt.Println("Player at X:", x, "Y:", y)
+	m.players["singleton"] = &Player{
+		mu:        &sync.Mutex{},
+		positionX: x,
+		positionY: y,
+	}
 	m.loadMobs()
 	loadedMap <- true
 	go m.Socket()
@@ -47,12 +57,12 @@ func (m *Map) loadMobs() {
 
 	//TODO: Loop to load mobs from db or json file
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 1; i++ {
 		mob := NewMonster(1002, m)
 		m.mobs[mob.memID] = mob
 	}
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 1; i++ {
 		mob := NewMonster(1049, m)
 		m.mobs[mob.memID] = mob
 	}
@@ -84,11 +94,19 @@ func (m *Map) getBasicInfo() []byte {
 		mobs = append(mobs, mb.memID)
 	}
 
+	var players []string
+	for _, p := range m.players {
+		players = append(players, fmt.Sprintf("%p", p))
+		x, y := p.getXY()
+		players = append(players, strconv.Itoa(int(x)), strconv.Itoa(int(y)))
+	}
+
 	tmap := map[string]interface{}{
-		"id":   m.id,
-		"name": m.name,
-		"size": m.size,
-		"mobs": mobs,
+		"id":      m.id,
+		"name":    m.name,
+		"size":    m.size,
+		"mobs":    mobs,
+		"players": players,
 	}
 
 	b, _ := json.Marshal(tmap)
