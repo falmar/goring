@@ -42,6 +42,8 @@ func (m *Map) Run(loadedMap chan<- bool) {
 		mu:        &sync.Mutex{},
 		positionX: x,
 		positionY: y,
+		dead:      false,
+		hp:        50,
 	}
 	m.loadMobs()
 	loadedMap <- true
@@ -62,7 +64,7 @@ func (m *Map) loadMobs() {
 		m.mobs[mob.memID] = mob
 	}
 
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 0; i++ {
 		mob := NewMonster(1049, m)
 		m.mobs[mob.memID] = mob
 	}

@@ -3,8 +3,58 @@ package main
 import "math/rand"
 
 func random(min, max int64) int64 {
-	return rand.Int63n(max-min) + min
+	return (rand.Int63n(max-min) + min) + 1
 }
+
+// Combat
+
+func inAttackRange(x, y, tX, tY, attackRange int64) bool {
+	var minX, minY, maxX, maxY int64
+
+	minX = x - attackRange
+	minY = y - attackRange
+	maxX = x + attackRange
+	maxY = y + attackRange
+
+	if minX <= tX && maxX >= tX && minY <= tY && maxY >= tY {
+		return true
+	}
+
+	return false
+}
+
+// Sight
+
+func inSightRange(x, y, tX, tY, sightRange int64, m *Map) bool {
+	minX, minY, maxX, maxY := minMaxSightRange(x, y, sightRange, m)
+
+	if minX <= tX && maxX >= tX && minY <= tY && maxY >= tY {
+		return true
+	}
+
+	return false
+}
+
+func minMaxSightRange(x, y, sightRange int64, m *Map) (minX, minY, maxX, maxY int64) {
+	var mapMaxX, mapMaxY int64 = m.size[0], m.size[1]
+
+	if minX = x - sightRange; minX < 1 {
+		minX = 1
+	}
+	if maxX = x + sightRange; maxX > mapMaxX {
+		maxX = mapMaxX
+	}
+	if minY = y - sightRange; minY < 1 {
+		minY = 1
+	}
+	if maxY = y + sightRange; maxY > mapMaxY {
+		maxY = mapMaxY
+	}
+
+	return minX, minY, maxX, maxY
+}
+
+// Routes
 
 func calculateClosestRoute(oX, oY, tX, tY, attackRange int64) [][2]int64 {
 	var x, y int64 = oX, oY

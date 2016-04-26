@@ -15,7 +15,7 @@ const (
 	mobStatusMovingCombat // move to enter combat
 	mobStatusMovingKin    // help another mob same kin
 	mobStatusDead         // mob has died
-	mobStatusCombat       // mob is in comabt
+	mobStatusCombat       // mob is in combat
 )
 
 // Monster basic interface
@@ -33,6 +33,9 @@ type Monster struct {
 	baseMap     *Map
 	positionX   int64
 	positionY   int64
+	attackPower [2]int64
+	attackRange int64
+	attackSpeed int64
 	sightRange  int64
 	idleTime    [2]int64
 	walkRange   int64
@@ -40,6 +43,7 @@ type Monster struct {
 	status      int64
 	aggresive   bool
 	respawnTime [2]int64
+	target      *Player
 }
 
 // NewMonster instance for maps
@@ -59,10 +63,13 @@ func NewMonster(id int64, baseMap *Map) *Monster {
 		walkRange:   6,
 		walkSpeed:   1600,
 		idleTime:    [2]int64{2, 4},
-		sightRange:  4,
-		aggresive:   false,
+		sightRange:  5,
+		aggresive:   true,
 		status:      mobStatusIdle,
 		respawnTime: [2]int64{1, 10},
+		attackPower: [2]int64{7, 10},
+		attackSpeed: 1870,
+		attackRange: 2,
 	}
 
 	m.memID = fmt.Sprintf("%p", m)
@@ -141,7 +148,7 @@ func (m *Monster) move() {
 	}
 }
 
-func (m *Monster) walk(route [][]int64, requiredStatus int64) bool {
+func (m *Monster) walk(route [][2]int64, requiredStatus int64) bool {
 	m.setStatus(requiredStatus)
 	var i int
 	for i = 0; i < len(route); i++ {
@@ -157,13 +164,13 @@ func (m *Monster) walk(route [][]int64, requiredStatus int64) bool {
 	return len(route) == i
 }
 
-func (m Monster) routeRandomMove(oX, oY, nX, nY int64) ([][]int64, bool) {
-	var route [][]int64
+func (m Monster) routeRandomMove(oX, oY, nX, nY int64) ([][2]int64, bool) {
+	var route [][2]int64
 	var movements int64
 	var retry int
 
 	for {
-		route = [][]int64{}
+		route = [][2]int64{}
 		var X, Y int64 = oX, oY
 		movements = 0
 
@@ -173,7 +180,7 @@ func (m Monster) routeRandomMove(oX, oY, nX, nY int64) ([][]int64, bool) {
 			}
 
 			X, Y = routeXY(X, nX, Y, nY)
-			route = append(route, []int64{X, Y})
+			route = append(route, [2]int64{X, Y})
 			movements++
 
 			if X == nX && Y == nY {
@@ -200,64 +207,73 @@ func (m Monster) routeRandomMove(oX, oY, nX, nY int64) ([][]int64, bool) {
 func (m *Monster) sight() {
 	<-time.NewTimer(100 * time.Millisecond).C
 
-	currentStatus := m.getStatus()
-
-	if currentStatus == mobStatusCombat || currentStatus == mobStatusDead {
+	if m.getStatus() == mobStatusDead {
 		fmt.Println("Dont sight")
 		return
 	}
 
 	x, y := m.getXY()
 
-	var mapMaxX, mapMaxY int64 = m.baseMap.size[0], m.baseMap.size[1]
-	var minX, minY, maxX, maxY int64
+	if m.getTarget() == nil {
 
-	if minX = x - m.sightRange; minX < 1 {
-		minX = 1
-	}
-	if maxX = x + m.sightRange; maxX > mapMaxX {
-		maxX = mapMaxX
-	}
-	if minY = y - m.sightRange; minY < 1 {
-		minY = 1
-	}
-	if maxY = y + m.sightRange; maxY > mapMaxY {
-		maxY = mapMaxY
-	}
-
-	players := m.baseMap.players
-	var targets []*Player
-
-	for _, p := range players {
-		tX, tY := p.getXY()
-		if minX <= tX && maxX >= tX && minY <= tY && maxY >= tY {
-			targets = append(targets, p)
-		}
-	}
-
-	if targets != nil {
-		m.setStatus(mobStatusCombat)
-		x, y = m.getXY()
-
-		var closestTarget = make(chan *Player, len(targets))
-		for _, t := range targets {
-			go m.calculateClosestTarget(t, x, y, closestTarget)
+		var targets = []*Player{}
+		for _, p := range m.baseMap.players {
+			if p.dead {
+				continue
+			}
+			tX, tY := p.getXY()
+			if inSightRange(x, y, tX, tY, m.sightRange, m.baseMap) {
+				targets = append(targets, p)
+			}
 		}
 
-		//target :=
-		<-closestTarget
-		close(closestTarget)
+		if targets != nil {
+			m.setStatus(mobStatusCombat)
+			x, y = m.getXY()
 
-		// Simulate combat
-		//nX, nY := target.getXY()
+			var closestTarget = make(chan *Player, len(targets))
+			for _, t := range targets {
+				go m.calculateClosestTarget(t, x, y, closestTarget)
+			}
 
-		//route := m.calculateClosestRoute(x, y, nX, nY)
+			m.setTarget(<-closestTarget)
+			close(closestTarget)
 
-		return
-	}
+			go m.attack()
 
-	if m.getStatus() != mobStatusCombat {
+			return
+		}
+
 		m.statusChan <- "sight"
+	}
+}
+
+// ----------------- Combat ------------------ //
+
+func (m *Monster) attack() {
+
+	for {
+		target := m.getTarget()
+
+		if target == nil {
+			return
+		}
+
+		x, y := m.getXY()
+		tX, tY := target.getXY()
+		if inAttackRange(x, y, tX, tY, m.attackRange) {
+			target.damage(random(m.attackPower[0], m.attackPower[1]))
+		} else {
+			route := calculateClosestRoute(x, y, tX, tY, m.attackRange)
+			m.walk(route, mobStatusMovingCombat)
+		}
+
+		if target.dead {
+			m.setStatus(mobStatusIdle)
+			go m.spawnStatus()
+			return
+		}
+		<-time.NewTimer(time.Duration(m.attackSpeed) * time.Millisecond).C
 	}
 }
 
@@ -302,6 +318,18 @@ func (m *Monster) spawnStatus() {
 }
 
 // ----------------- getters / setters ------------------ //
+
+func (m *Monster) setTarget(t *Player) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.target = t
+}
+
+func (m *Monster) getTarget() *Player {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.target
+}
 
 func (m *Monster) setXY(x, y int64) {
 	m.mu.Lock()
