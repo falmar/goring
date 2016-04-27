@@ -14,8 +14,8 @@ import (
 const (
 	playerStatusIdle   = iota
 	playerStatusMoving // random movement
-	playerStatusDead   // mob has died
-	playerStatusCombat // mob is in combat
+	playerStatusDead   // player has died
+	playerStatusCombat // player is in combat
 )
 
 //Player struct
@@ -51,19 +51,17 @@ func (p *Player) damage(d int64) bool {
 
 	if hp > 0 {
 		hp += d * -1
-
+		p.setHP(hp)
 		if hp <= 0 {
-			fmt.Printf("Dead player %p\n", p)
 			go p.die()
 			return false
 		}
 
-		p.setHP(hp)
-
 		p.cmdChan <- "p_dmg:" + strconv.FormatInt(d, 10)
+		return true
 	}
 
-	return true
+	return false
 }
 
 // ----------------- Die / Respawn ------------------ //
@@ -71,7 +69,7 @@ func (p *Player) damage(d int64) bool {
 func (p *Player) die() {
 	p.setStatus(playerStatusDead)
 	p.cmdChan <- "p_die"
-	<-time.NewTimer(time.Duration(random(800, 1600)) * time.Millisecond).C
+	<-time.NewTimer(time.Duration(random(2000, 3000)) * time.Millisecond).C
 	p.respawn()
 }
 

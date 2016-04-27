@@ -32,7 +32,7 @@ function loadMap(mapID) {
 
       switch(cmd) {
         case "info":
-          buildMapGrid(data.name,data.size);
+          buildMapGrid(data.size);
           loadMobs(data.mobs,data.id);
           loadPlayers(data.players,data.id);
           break;
@@ -44,7 +44,7 @@ function loadMap(mapID) {
   };
 }
 
-function buildMapGrid(name,size) {
+function buildMapGrid2(name,size) {
   var table = $("<span><table class='text-center'><thead><tr><th class='text-center' colspan='"+size[0]+"'>Map: "+name+"</th></tr></thead><tbody></tbody></table></span>");
 
   for (f=1; f<=size[1]; f++) {
@@ -58,4 +58,21 @@ function buildMapGrid(name,size) {
   }
 
   $("#map-grid").html(table.html());
+}
+
+function buildMapGrid(size) {
+  var grid = $("<span></span>");
+
+  for (f=1; f<=size[1]; f++) {
+    var tr = $("<div class='tr shrink'></div>");
+    for (z = 1; z<=size[0]; z++) {
+      var td = $("<div class='td'>&nbsp;</div>");
+      td.attr("id","cell-"+f+"-"+z);
+      tr.append(td);
+    }
+    grid.append(tr);
+  }
+
+  $("#map-grid").css('width',(size[0] * 40)+5 +"px");
+  $("#map-grid").html(grid.html());
 }

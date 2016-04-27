@@ -69,6 +69,9 @@ function loadPlayers(p,mapID){
   });
 }
 
+var playerStatusIdle = 1;
+var playerStatusCombat = 2;
+var playerStatusDead = 3;
 
 var Player = function(id,data){
   this.memID = id;
@@ -78,11 +81,14 @@ var Player = function(id,data){
   this.positionX = data.positionX;
   this.positionY = data.positionY;
   this.dead = data.dead;
+  this.status = playerStatusIdle;
 
   // start
 
+
+
   $("body").append("<div class='hide player' id='player-"+this.memID+"'>"+
-  '<meter value="100" min="0" low="25" high="60" optimum="100" max="100"></meter>'+
+  '<meter value="'+(this.hp * 100) /this.maxHP+'" min="0" low="25" high="60" optimum="100" max="100"></meter>'+
   "</div>");
 
   var player = $("#player-"+this.memID)
@@ -97,17 +103,26 @@ var Player = function(id,data){
   this.dmg = function(dmg){
     this.hp += dmg * -1;
     player.find("meter").attr("value",(this.hp * 100) / this.maxHP);
-    player.addClass('dmg');
-    player.css("top", player.offset().top+12+"px");
-    setTimeout(function(){
-      player.css("top", player.offset().top-12+"px");
-      player.removeClass('dmg');
-    },600);
+    var self = this;
+
+    if(this.status == playerStatusIdle) {
+      this.status = playerStatusCombat;
+      player.addClass('dmg');
+      player.css("top", player.offset().top+12+"px");
+      setTimeout(function(){
+        if (self.status == playerStatusCombat) {
+          self.status = playerStatusIdle;
+          player.css("top", player.offset().top-12+"px");
+        }
+        player.removeClass('dmg');
+      },600);
+    }
   };
 
   this.die = function(){
     this.hp = 0;
     $(player).find("meter").attr("value",0);
+    this.status = playerStatusDead;
     player.css("top", player.offset().top+31+"px");
     player.addClass('dead');
   };
@@ -116,6 +131,7 @@ var Player = function(id,data){
     this.move([data.positionX,data.positionY]);
     this.hp = data.hp;
     $(player).find("meter").attr("value",(this.hp * 100) / this.maxHP);
+    this.status = playerStatusIdle;
     player.removeClass('dead');
   };
 

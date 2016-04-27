@@ -53,9 +53,18 @@
   border: solid 2px #CCC;
 }
 
-#map-grid td {
+#map-grid .tr {
+  clear:both;
+  height: 40px;
+}
+
+#map-grid .td {
+  float:left;
+  width: 40px;
+  height: 40px;
   background-color: #FFF;
 }
-#map-grid td:hover {
+
+#map-grid .td:hover {
   background-color: #CCC;
 }

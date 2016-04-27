@@ -8,7 +8,7 @@ func startMapServer(mapChan chan bool) {
 	loadedMap := make(chan bool)
 
 	//TODO: Loop to load mobs from db or json file
-	maps["prontera"] = NewMap("prontera", "Prontera", [2]int64{15, 18})
+	maps["prontera"] = NewMap("prontera", "Prontera", [2]int64{18, 15})
 
 	totalMaps = len(maps)
 
