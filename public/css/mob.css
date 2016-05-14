@@ -5,6 +5,13 @@
   position: absolute;
 }
 
+.mob-1007 {
+  width: 36px;
+  height: 29px;
+  background: url("/src/img/1007.gif");
+  position: absolute;
+}
+
 .mob-1049 {
   width: 17px;
   height: 38px;

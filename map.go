@@ -50,13 +50,21 @@ func (m *Map) loadMobs() {
 
 	//TODO: Loop to load mobs from db or json file
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 3; i++ {
 		mob := NewMonster(1002, m)
+		mob.walkSpeed = 1200
 		m.mobs[mob.memID] = mob
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 3; i++ {
+		mob := NewMonster(1007, m)
+		mob.aggresive = true
+		m.mobs[mob.memID] = mob
+	}
+
+	for i := 0; i < 2; i++ {
 		mob := NewMonster(1049, m)
+		mob.walkSpeed = 900
 		m.mobs[mob.memID] = mob
 	}
 

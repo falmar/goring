@@ -66,7 +66,7 @@ func NewMonster(id int64, baseMap *Map) *Monster {
 		idleTime:    [2]int64{1000, 2600},
 		sightRange:  6,
 		sightTime:   100,
-		aggresive:   true,
+		aggresive:   false,
 		status:      mobStatusIdle,
 		respawnTime: [2]int64{1, 10},
 		attackPower: [2]int64{7, 10},

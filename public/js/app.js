@@ -1,5 +1,9 @@
 
+var ws_ip = "";
+
 $(document).ready(function(){
+
+  ws_ip = $("#ws_ip").val();
 
   $("#map_form").submit(function(e){
     e.preventDefault();

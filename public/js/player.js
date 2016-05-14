@@ -18,7 +18,7 @@ function loadPlayers(p,mapID){
   playersIDs = [];
   players = [];
 
-  var wsuri = "ws://127.0.0.1:9020/getPlayer";
+  var wsuri = "ws://"+ws_ip+":9020/getPlayer";
 
   p.forEach(function(e,i){
     playersSockets[i] = new WebSocket(wsuri);
@@ -85,9 +85,7 @@ var Player = function(id,data){
 
   // start
 
-
-
-  $("body").append("<div class='hide player' id='player-"+this.memID+"'>"+
+  $("body").append("<div class='player' id='player-"+this.memID+"'>"+
   '<meter value="'+(this.hp * 100) /this.maxHP+'" min="0" low="25" high="60" optimum="100" max="100"></meter>'+
   "</div>");
 
@@ -135,9 +133,10 @@ var Player = function(id,data){
     player.removeClass('dead');
   };
 
-  if(!this.dead) {
-    player.removeClass('hide');
-    this.move([this.positionX,this.positionY]);
+  if(this.dead) {
+    player.addClass('dead');
   }
+  
+  this.move([this.positionX,this.positionY]);
 
 };
