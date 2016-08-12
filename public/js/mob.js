@@ -20,7 +20,7 @@ function loadMobs(mobs,mapID) {
   Mobs = [];
   MobIDs = [];
 
-  var wsuri = "ws://"+ws_ip+":9020/getMob";
+  var wsuri = "ws://"+ws_ip+"/ws/getMob";
 
   mobs.forEach(function(e,f){
     mobSockets[f] = new WebSocket(wsuri);

@@ -18,7 +18,7 @@ function loadPlayers(p,mapID){
   playersIDs = [];
   players = [];
 
-  var wsuri = "ws://"+ws_ip+":9020/getPlayer";
+  var wsuri = "ws://"+ws_ip+"/ws/getPlayer";
 
   p.forEach(function(e,i){
     playersSockets[i] = new WebSocket(wsuri);
@@ -136,7 +136,7 @@ var Player = function(id,data){
   if(this.dead) {
     player.addClass('dead');
   }
-  
+
   this.move([this.positionX,this.positionY]);
 
 };

@@ -6,7 +6,7 @@ function loadMap(mapID) {
     mapSocket.close();
   }
 
-  var wsuri = "ws://"+ws_ip+":9020/getMap";
+  var wsuri = "ws://"+ws_ip+"/ws/getMap";
 
   mapSocket = new WebSocket(wsuri);
 
