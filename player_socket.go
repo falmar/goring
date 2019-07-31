@@ -10,7 +10,7 @@ import (
 )
 
 func getPlayer(ws *websocket.Conn) {
-	msg := make([]byte, 512)
+	msg := make([]byte, 1024)
 	n, err := ws.Read(msg)
 	if err != nil {
 		log.Println(err)
@@ -49,4 +49,6 @@ func getPlayer(ws *websocket.Conn) {
 			}
 		}
 	}
+
+	ws.Close()
 }

@@ -56,7 +56,7 @@ func (m *Map) loadMobs() {
 		m.mobs[mob.memID] = mob
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		mob := NewMonster(1007, m)
 		mob.aggresive = true
 		m.mobs[mob.memID] = mob

@@ -49,4 +49,6 @@ func getMob(ws *websocket.Conn) {
 			}
 		}
 	}
+
+	ws.Close()
 }

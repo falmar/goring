@@ -1,13 +1,13 @@
-FROM golang:1.6-alpine
+FROM golang:1.12-alpine as build-env
 
-COPY . /go/src/app
+WORKDIR /go-app
+ADD . /go-app
 
-WORKDIR /go/src/app
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -mod=vendor -o goring .
 
-RUN apk --no-cache add curl git && \
-  go get ./ && \
-  go build && go install -v
-
-expose 8080 9020
-
-CMD ["app"]
+FROM alpine:3.9
+WORKDIR /go-app
+COPY --from=build-env /go-app/goring /go-app/goring
+COPY public /go-app/public
+COPY tpl /go-app/tpl
+ENTRYPOINT ["./goring"]

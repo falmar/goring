@@ -4,6 +4,7 @@ import (
 	htemplate "html/template"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -15,7 +16,9 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
-	err = tpl.Execute(w, nil)
+	err = tpl.Execute(w, map[string]interface{}{
+		"WSHost": os.Getenv("WS_HOST"),
+	})
 
 	if err != nil {
 		log.Println(err)

@@ -414,12 +414,12 @@ func (m *Monster) rangeSockets(cmd, data string) {
 	data = fmt.Sprintf("%s:%s\n", cmd, data)
 	m.mu.Lock()
 	sockets := m.sockets
-	m.mu.Unlock()
 	for _, sock := range sockets {
 		go func(sock *websocket.Conn, data string) {
 			sock.Write([]byte(data))
 		}(sock, data)
 	}
+	m.mu.Unlock()
 }
 
 func (m *Monster) addSocket(address string, ws *websocket.Conn) {

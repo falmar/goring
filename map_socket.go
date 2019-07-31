@@ -36,4 +36,6 @@ func getMap(ws *websocket.Conn) {
 			}
 		}
 	}
+
+	ws.Close()
 }

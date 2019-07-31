@@ -74,7 +74,9 @@ func (p *Player) die() {
 }
 
 func (p *Player) respawn() {
+	p.mu.Lock()
 	p.hp = p.maxHP
+	p.mu.Unlock()
 	p.setXY(random(1, p.currentMap.size[0]), random(1, p.currentMap.size[1]))
 	p.cmdChan <- "p_respawn"
 	p.setStatus(playerStatusIdle)
@@ -178,13 +180,12 @@ func (p *Player) socket() {
 func (p *Player) rangeSockets(cmd, data string) {
 	data = fmt.Sprintf("%s:%s\n", cmd, data)
 	p.mu.Lock()
-	sockets := p.sockets
-	p.mu.Unlock()
-	for _, sock := range sockets {
+	for _, sock := range p.sockets {
 		go func(sock *websocket.Conn, data string) {
 			sock.Write([]byte(data))
 		}(sock, data)
 	}
+	p.mu.Unlock()
 }
 
 func (p *Player) addSocket(address string, ws *websocket.Conn) {
